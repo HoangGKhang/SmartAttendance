@@ -1,0 +1,44 @@
+
+# Android / Gradle generated files
+.gradle/
+.kotlin/
+build/
+app/build/
+*/build/
+.externalNativeBuild/
+.cxx/
+captures/
+
+# Local machine config
+local.properties
+
+# IDE / Android Studio personal files
+*.iml
+.idea/workspace.xml
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/shelf/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Signing / release secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# Environment / secret files
+.env
+.env.*
+!/.env.example
+
+# Firebase config - cân nhắc ignore nếu repo public
+app/google-services.json
+
+.idea/
+temp-gitignore.txt
