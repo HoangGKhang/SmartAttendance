@@ -37,6 +37,19 @@ android {
 
 dependencies {
 
+    // Mới
+    // Supabase
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.2.4"))
+
+    implementation("io.github.jan-tennert.supabase:auth-kt")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:realtime-kt")
+
+    implementation("io.ktor:ktor-client-android:3.2.3")
+
+
+
+    // Cũ
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
     implementation("com.google.firebase:firebase-auth")
