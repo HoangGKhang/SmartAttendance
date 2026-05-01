@@ -4,16 +4,17 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class User(
-    @SerialName("user_id")
-    val userId: String,
+data class Student(
+    @SerialName("student_id")
+    val studentId: String? = null,
 
-    val email: String,
+    @SerialName("student_code")
+    val studentCode: String? = null,
 
     @SerialName("full_name")
     val fullName: String,
 
-    val role: String,
+    val email: String? = null,
 
     @SerialName("moodle_user_id")
     val moodleUserId: String? = null,
