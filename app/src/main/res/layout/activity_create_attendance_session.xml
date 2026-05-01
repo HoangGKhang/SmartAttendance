@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/createSessionScrollView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F8FAFC"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:id="@+id/createSessionRoot"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Top bar -->
+        <LinearLayout
+            android:id="@+id/topBar"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="20dp">
+
+            <FrameLayout
+                android:id="@+id/btnBack"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/create_session_bg_icon_button">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Quay lại"
+                    android:src="@drawable/create_session_ic_arrow_back"
+                    app:tint="#111827" />
+
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvTopTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Tạo buổi điểm danh"
+                android:textColor="#111827"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Space
+                android:layout_width="42dp"
+                android:layout_height="42dp" />
+
+        </LinearLayout>
+
+        <!-- Content -->
+        <LinearLayout
+            android:id="@+id/contentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="30dp">
+
+            <!-- Page title -->
+            <TextView
+                android:id="@+id/tvPageTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Mở phiên QR"
+                android:textColor="#111827"
+                android:textSize="25sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvPageSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="3dp"
+                android:text="Chọn lớp, thời gian và phương thức xác minh để bắt đầu điểm danh."
+                android:textColor="#4F647B"
+                android:textSize="14sp" />
+
+            <!-- Form card -->
+            <LinearLayout
+                android:id="@+id/formCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:background="@drawable/create_session_bg_card"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Course -->
+                <TextView
+                    android:id="@+id/tvCourseLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="LỚP HỌC"
+                    android:textColor="#64748B"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/spinnerCourse"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/create_session_bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp" />
+
+                <!-- Session title -->
+                <TextView
+                    android:id="@+id/tvSessionTitleLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="TÊN BUỔI"
+                    android:textColor="#64748B"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/edtSessionTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/create_session_bg_input"
+                    android:hint="Ví dụ: Buổi 3 - Lý thuyết"
+                    android:inputType="text"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:singleLine="true"
+                    android:textColor="#111827"
+                    android:textColorHint="#9CA3AF"
+                    android:textSize="15sp" />
+
+                <!-- Session type -->
+                <TextView
+                    android:id="@+id/tvSessionTypeLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="LOẠI BUỔI"
+                    android:textColor="#64748B"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/spinnerSessionType"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/create_session_bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp" />
+
+                <!-- Duration -->
+                <TextView
+                    android:id="@+id/tvDurationLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="THỜI LƯỢNG ĐIỂM DANH"
+                    android:textColor="#64748B"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/spinnerDuration"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/create_session_bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp" />
+
+                <!-- Verify method -->
+                <TextView
+                    android:id="@+id/tvVerifyMethodLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="PHƯƠNG THỨC"
+                    android:textColor="#64748B"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/spinnerVerifyMethod"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/create_session_bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp" />
+
+                <!-- GPS radius -->
+                <TextView
+                    android:id="@+id/tvGpsRadiusLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="BÁN KÍNH GPS HỢP LỆ"
+                    android:textColor="#64748B"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/spinnerGpsRadius"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/create_session_bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp" />
+
+            </LinearLayout>
+
+            <!-- Note box -->
+            <LinearLayout
+                android:id="@+id/noteBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:background="@drawable/create_session_bg_note_box"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="14dp">
+
+                <FrameLayout
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/create_session_bg_note_icon">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="Ghi chú"
+                        android:src="@drawable/create_session_ic_clock"
+                        app:tint="#1F6FEB" />
+
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvNote"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:lineSpacingExtra="2dp"
+                    android:text="QR sẽ tự làm mới sau mỗi 30 giây để hạn chế gửi mã cho người khác."
+                    android:textColor="#4F647B"
+                    android:textSize="13sp" />
+
+            </LinearLayout>
+
+            <!-- Error message -->
+            <TextView
+                android:id="@+id/tvCreateSessionError"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/create_session_bg_error_box"
+                android:padding="14dp"
+                android:text="Vui lòng chọn lớp học trước khi tạo phiên."
+                android:textColor="#B91C1C"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <!-- Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCreateSession"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="24dp"
+                android:text="Tạo phiên &amp; hiển thị QR"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:backgroundTint="#1F6FEB"
+                app:cornerRadius="14dp"
+                app:icon="@drawable/create_session_ic_qr"
+                app:iconGravity="textStart"
+                app:iconTint="#FFFFFF" />
+
+        </LinearLayout>
+
+        <!-- Hidden legacy views -->
+        <LinearLayout
+            android:id="@+id/legacyHiddenViews"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/btnStartAttendance"
+                android:layout_width="0dp"
+                android:layout_height="0dp" />
+
+            <Button
+                android:id="@+id/createButton"
+                android:layout_width="0dp"
+                android:layout_height="0dp" />
+
+            <EditText
+                android:id="@+id/edtClassName"
+                android:layout_width="0dp"
+                android:layout_height="0dp" />
+
+            <TextView
+                android:id="@+id/tvError"
+                android:layout_width="0dp"
+                android:layout_height="0dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>
