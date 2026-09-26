@@ -13,3 +13,20 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Android Studio
+.idea/.name
+.idea/AndroidProjectSystem.xml
+.idea/compiler.xml
+.idea/deploymentTargetSelector.xml
+.idea/gradle.xml
+.idea/misc.xml
+.idea/runConfigurations.xml
+.idea/vcs.xml
+.idea/workspace.xml
+.idea/caches/
+.idea/libraries/
+.idea/shelf/
+
+# Local config
+/local.properties
