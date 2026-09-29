@@ -1,3 +1,17 @@
 <resources>
-    <string name="app_name">My Application</string>
+
+    <string name="app_name">SmartAttendance</string>
+
+    <string name="login_title">Đăng nhập</string>
+
+    <string name="login_description">
+        Đăng nhập để sử dụng SmartAttendance
+    </string>
+
+    <string name="email">Email</string>
+
+    <string name="password">Mật khẩu</string>
+
+    <string name="login">Đăng nhập</string>
+
 </resources>
