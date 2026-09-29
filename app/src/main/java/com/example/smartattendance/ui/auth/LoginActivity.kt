@@ -12,6 +12,11 @@ import com.example.smartattendance.MainActivity
 import com.example.smartattendance.databinding.ActivityLoginBinding
 import kotlinx.coroutines.launch
 
+//
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import com.example.smartattendance.data.remote.SupabaseProvider
+
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
@@ -30,6 +35,8 @@ class LoginActivity : AppCompatActivity() {
         setupListeners()
 
         observeUiState()
+
+        observeSession()
     }
 
     private fun setupListeners() {
@@ -81,8 +88,6 @@ class LoginActivity : AppCompatActivity() {
                     )
 
                     if (state.isLoginSuccess) {
-
-                        openMainActivity()
 
                         viewModel.loginHandled()
                     }
@@ -169,6 +174,50 @@ class LoginActivity : AppCompatActivity() {
             View.VISIBLE
     }
 
+    private fun observeSession() {
+
+        lifecycleScope.launch {
+
+            repeatOnLifecycle(
+                Lifecycle.State.STARTED
+            ) {
+
+                SupabaseProvider.client.auth
+                    .sessionStatus
+                    .collect { status ->
+
+                        when (status) {
+
+                            SessionStatus.Initializing -> {
+
+                                showLoading(true)
+                            }
+
+                            is SessionStatus.Authenticated -> {
+
+                                showLoading(false)
+
+                                openMainActivity()
+                            }
+
+                            is SessionStatus.NotAuthenticated -> {
+
+                                showLoading(false)
+                            }
+
+                            is SessionStatus.RefreshFailure -> {
+
+                                showLoading(false)
+
+                                showError(
+                                    "Không thể làm mới phiên đăng nhập"
+                                )
+                            }
+                        }
+                    }
+            }
+        }
+    }
     private fun openMainActivity() {
 
         val intent = Intent(
@@ -180,4 +229,6 @@ class LoginActivity : AppCompatActivity() {
 
         finish()
     }
+
+
 }
