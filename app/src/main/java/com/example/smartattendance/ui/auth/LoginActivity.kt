@@ -19,6 +19,11 @@ import com.example.smartattendance.data.remote.SupabaseProvider
 //
 import com.example.smartattendance.ui.profile.ProfileUiState
 import com.example.smartattendance.ui.profile.ProfileViewModel
+
+//
+import com.example.smartattendance.data.model.UserRole
+import com.example.smartattendance.ui.lecturer.LecturerHomeActivity
+import com.example.smartattendance.ui.student.StudentHomeActivity
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
@@ -234,6 +239,44 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
+    private fun navigateByRole(
+        role: UserRole
+    ) {
+
+        when (role) {
+
+            UserRole.STUDENT -> {
+
+                val intent = Intent(
+                    this,
+                    StudentHomeActivity::class.java
+                )
+
+                startActivity(intent)
+
+                finish()
+            }
+
+            UserRole.LECTURER -> {
+
+                val intent = Intent(
+                    this,
+                    LecturerHomeActivity::class.java
+                )
+
+                startActivity(intent)
+
+                finish()
+            }
+
+            UserRole.ADMIN -> {
+
+                showError(
+                    "Giao diện Admin chưa được triển khai"
+                )
+            }
+        }
+    }
     private fun observeProfileState() {
 
         lifecycleScope.launch {
@@ -262,11 +305,13 @@ class LoginActivity : AppCompatActivity() {
 
                                 android.util.Log.d(
                                     "SmartAttendanceProfile",
-                                    "Name: ${state.profile.fullName}, " +
-                                            "Role: ${state.profile.role}"
+                                    "Name = ${state.profile.fullName}, " +
+                                            "Role = ${state.profile.role}"
                                 )
 
-                                openMainActivity()
+                                navigateByRole(
+                                    state.profile.role
+                                )
                             }
 
                             is ProfileUiState.Error -> {
