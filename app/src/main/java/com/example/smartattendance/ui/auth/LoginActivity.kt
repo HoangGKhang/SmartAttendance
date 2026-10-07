@@ -16,12 +16,15 @@ import kotlinx.coroutines.launch
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import com.example.smartattendance.data.remote.SupabaseProvider
-
+//
+import com.example.smartattendance.ui.profile.ProfileUiState
+import com.example.smartattendance.ui.profile.ProfileViewModel
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
 
     private val viewModel: AuthViewModel by viewModels()
+    private val profileViewModel: ProfileViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +40,8 @@ class LoginActivity : AppCompatActivity() {
         observeUiState()
 
         observeSession()
+
+        observeProfileState()
     }
 
     private fun setupListeners() {
@@ -195,9 +200,8 @@ class LoginActivity : AppCompatActivity() {
 
                             is SessionStatus.Authenticated -> {
 
-                                showLoading(false)
-
-                                openMainActivity()
+                                profileViewModel
+                                    .loadCurrentUserProfile()
                             }
 
                             is SessionStatus.NotAuthenticated -> {
@@ -230,5 +234,52 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
+    private fun observeProfileState() {
 
+        lifecycleScope.launch {
+
+            repeatOnLifecycle(
+                Lifecycle.State.STARTED
+            ) {
+
+                profileViewModel.uiState
+                    .collect { state ->
+
+                        when (state) {
+
+                            ProfileUiState.Idle -> {
+                                // Chưa tải profile
+                            }
+
+                            ProfileUiState.Loading -> {
+
+                                showLoading(true)
+                            }
+
+                            is ProfileUiState.Success -> {
+
+                                showLoading(false)
+
+                                android.util.Log.d(
+                                    "SmartAttendanceProfile",
+                                    "Name: ${state.profile.fullName}, " +
+                                            "Role: ${state.profile.role}"
+                                )
+
+                                openMainActivity()
+                            }
+
+                            is ProfileUiState.Error -> {
+
+                                showLoading(false)
+
+                                showError(
+                                    state.message
+                                )
+                            }
+                        }
+                    }
+            }
+        }
+    }
 }

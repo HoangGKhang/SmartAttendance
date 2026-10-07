@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 
 import com.example.smartattendance.data.model.Profile
 import com.example.smartattendance.data.model.UserRole
+import java.util.Locale
 
 @Serializable
 data class ProfileDto(
@@ -31,7 +32,9 @@ fun ProfileDto.toProfile(): Profile {
         id = id,
         studentCode = studentCode,
         fullName = fullName,
-        role = UserRole.valueOf(role),
+        role = UserRole.valueOf(
+            role.uppercase(Locale.ROOT)
+        ),
         moodleUserId = moodleUserId
     )
 }

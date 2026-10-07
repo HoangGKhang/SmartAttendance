@@ -6,6 +6,7 @@ import com.example.smartattendance.data.remote.dto.ProfileDto
 import com.example.smartattendance.data.remote.dto.toProfile
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import kotlin.coroutines.cancellation.CancellationException
 
 class ProfileRepository(
     private val supabase: SupabaseClient =
@@ -25,12 +26,20 @@ class ProfileRepository(
                         eq("id", userId)
                     }
                 }
-                .decodeSingle<ProfileDto>()
+                .decodeSingleOrNull<ProfileDto>()
+                ?: return Result.failure(
+                    IllegalStateException(
+                        "Không tìm thấy hồ sơ người dùng. " +
+                            "Vui lòng kiểm tra dữ liệu profiles và quyền RLS."
+                    )
+                )
 
             Result.success(
                 profileDto.toProfile()
             )
 
+        } catch (exception: CancellationException) {
+            throw exception
         } catch (e: Exception) {
 
             Result.failure(e)
