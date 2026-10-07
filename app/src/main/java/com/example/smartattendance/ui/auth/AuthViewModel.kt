@@ -63,4 +63,23 @@ class AuthViewModel(
             isLoginSuccess = false
         )
     }
+
+    fun logout() {
+
+        viewModelScope.launch {
+
+            val result =
+                authRepository.logout()
+
+            result.onFailure { exception ->
+
+                _uiState.value =
+                    AuthUiState(
+                        errorMessage =
+                            exception.message
+                                ?: "Đăng xuất thất bại"
+                    )
+            }
+        }
+    }
 }
