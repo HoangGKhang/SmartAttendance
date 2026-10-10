@@ -20,6 +20,9 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
 
+import com.example.smartattendance.data.model.Course
+import com.example.smartattendance.ui.course.CourseDetailActivity
+
 class StudentHomeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityStudentHomeBinding
@@ -54,9 +57,7 @@ class StudentHomeActivity : AppCompatActivity() {
     private fun setupCourseList() {
 
         courseAdapter = CourseAdapter { course ->
-
-            // Course Detail sẽ làm ở bước sau.
-            // Hiện tại chỉ nhận được Course được click.
+            openCourseDetail(course)
         }
 
         binding.rvCourses.apply {
@@ -172,6 +173,30 @@ class StudentHomeActivity : AppCompatActivity() {
         }
     }
 
+    private fun openCourseDetail(course: Course) {
+
+        val intent = Intent(
+            this,
+            CourseDetailActivity::class.java
+        ).apply {
+            putExtra(
+                CourseDetailActivity.EXTRA_COURSE_ID,
+                course.id
+            )
+
+            putExtra(
+                CourseDetailActivity.EXTRA_COURSE_NAME,
+                course.name
+            )
+
+            putExtra(
+                CourseDetailActivity.EXTRA_CLASS_CODE,
+                course.classCode
+            )
+        }
+
+        startActivity(intent)
+    }
     private fun openLogin() {
 
         val intent = Intent(
@@ -183,4 +208,6 @@ class StudentHomeActivity : AppCompatActivity() {
 
         finish()
     }
+
+
 }

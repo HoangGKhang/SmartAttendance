@@ -15,6 +15,10 @@
         android:theme="@style/Theme.MyApplication">
 
         <activity
+            android:name=".ui.course.CourseDetailActivity"
+            android:exported="false" />
+        
+        <activity
             android:name=".ui.student.StudentHomeActivity"
             android:exported="false" />
 
