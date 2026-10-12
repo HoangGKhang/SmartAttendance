@@ -14,6 +14,9 @@ import com.example.smartattendance.ui.meeting.ClassMeetingUiState
 import com.example.smartattendance.ui.meeting.ClassMeetingViewModel
 import kotlinx.coroutines.launch
 
+import android.content.Intent
+import com.example.smartattendance.ui.meeting.CreateMeetingActivity
+
 class CourseDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCourseDetailBinding
@@ -27,6 +30,8 @@ class CourseDetailActivity : AppCompatActivity() {
         const val EXTRA_COURSE_ID = "extra_course_id"
         const val EXTRA_COURSE_NAME = "extra_course_name"
         const val EXTRA_CLASS_CODE = "extra_class_code"
+
+        const val EXTRA_CAN_CREATE_MEETING =  "extra_can_create_meeting"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +52,9 @@ class CourseDetailActivity : AppCompatActivity() {
         val classCode =
             intent.getStringExtra(EXTRA_CLASS_CODE)
 
+        val canCreateMeeting =
+            intent.getBooleanExtra(EXTRA_CAN_CREATE_MEETING, false)
+
         if (courseId.isNullOrBlank()) {
             finish()
             return
@@ -57,6 +65,30 @@ class CourseDetailActivity : AppCompatActivity() {
 
         binding.tvClassCode.text =
             classCode ?: "Không có mã lớp"
+
+        binding.btnCreateMeeting.visibility =
+            if (canCreateMeeting) View.VISIBLE else View.GONE
+
+        binding.btnCreateMeeting.setOnClickListener {
+
+            val createIntent = Intent(
+                this,
+                CreateMeetingActivity::class.java
+            ).apply {
+
+                putExtra(
+                    CreateMeetingActivity.EXTRA_COURSE_ID,
+                    courseId
+                )
+
+                putExtra(
+                    CreateMeetingActivity.EXTRA_COURSE_NAME,
+                    courseName
+                )
+            }
+
+            startActivity(createIntent)
+        }
 
         setupMeetingList()
 

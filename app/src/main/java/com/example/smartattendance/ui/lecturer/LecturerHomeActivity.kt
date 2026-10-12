@@ -207,6 +207,11 @@ class LecturerHomeActivity : AppCompatActivity() {
                 CourseDetailActivity.EXTRA_CLASS_CODE,
                 course.classCode
             )
+
+            putExtra(
+                CourseDetailActivity.EXTRA_CAN_CREATE_MEETING,
+                true
+            )
         }
 
         startActivity(intent)
