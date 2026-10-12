@@ -1,12 +1,27 @@
 package com.example.smartattendance.ui.course
 
 import android.os.Bundle
+import android.view.View
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.smartattendance.databinding.ActivityCourseDetailBinding
+import com.example.smartattendance.ui.meeting.ClassMeetingAdapter
+import com.example.smartattendance.ui.meeting.ClassMeetingUiState
+import com.example.smartattendance.ui.meeting.ClassMeetingViewModel
+import kotlinx.coroutines.launch
 
 class CourseDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCourseDetailBinding
+
+    private val meetingViewModel:
+            ClassMeetingViewModel by viewModels()
+
+    private lateinit var meetingAdapter: ClassMeetingAdapter
 
     companion object {
         const val EXTRA_COURSE_ID = "extra_course_id"
@@ -23,9 +38,14 @@ class CourseDetailActivity : AppCompatActivity() {
 
         setContentView(binding.root)
 
-        val courseId = intent.getStringExtra(EXTRA_COURSE_ID)
-        val courseName = intent.getStringExtra(EXTRA_COURSE_NAME)
-        val classCode = intent.getStringExtra(EXTRA_CLASS_CODE)
+        val courseId =
+            intent.getStringExtra(EXTRA_COURSE_ID)
+
+        val courseName =
+            intent.getStringExtra(EXTRA_COURSE_NAME)
+
+        val classCode =
+            intent.getStringExtra(EXTRA_CLASS_CODE)
 
         if (courseId.isNullOrBlank()) {
             finish()
@@ -37,5 +57,75 @@ class CourseDetailActivity : AppCompatActivity() {
 
         binding.tvClassCode.text =
             classCode ?: "Không có mã lớp"
+
+        setupMeetingList()
+
+        observeMeetings()
+
+        if (savedInstanceState == null) {
+            meetingViewModel.loadMeetings(courseId)
+        }
+    }
+
+    private fun setupMeetingList() {
+
+        meetingAdapter = ClassMeetingAdapter()
+
+        binding.rvMeetings.apply {
+            layoutManager = LinearLayoutManager(
+                this@CourseDetailActivity
+            )
+
+            adapter = meetingAdapter
+        }
+    }
+
+    private fun observeMeetings() {
+
+        lifecycleScope.launch {
+
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+
+                meetingViewModel.uiState.collect { state ->
+                    renderMeetingState(state)
+                }
+            }
+        }
+    }
+
+    private fun renderMeetingState(
+        state: ClassMeetingUiState
+    ) {
+
+        binding.progressBar.visibility = View.GONE
+        binding.tvEmpty.visibility = View.GONE
+        binding.tvError.visibility = View.GONE
+        binding.rvMeetings.visibility = View.GONE
+
+        when (state) {
+
+            ClassMeetingUiState.Idle -> Unit
+
+            ClassMeetingUiState.Loading -> {
+                binding.progressBar.visibility = View.VISIBLE
+            }
+
+            is ClassMeetingUiState.Success -> {
+
+                meetingAdapter.submitList(state.meetings)
+
+                if (state.meetings.isEmpty()) {
+                    binding.tvEmpty.visibility = View.VISIBLE
+                } else {
+                    binding.rvMeetings.visibility = View.VISIBLE
+                }
+            }
+
+            is ClassMeetingUiState.Error -> {
+
+                binding.tvError.text = state.message
+                binding.tvError.visibility = View.VISIBLE
+            }
+        }
     }
 }
