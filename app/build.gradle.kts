@@ -154,6 +154,7 @@ dependencies {
     // Supabase
     // =========================
 
+
     // Login / Logout / Session / JWT
     implementation(
         libs.supabase.auth
@@ -164,6 +165,8 @@ dependencies {
         libs.supabase.postgrest
     )
 
+    // Supabase Edge Functions
+    implementation(libs.supabase.functions)
 
     // =========================
     // Ktor
@@ -195,4 +198,6 @@ dependencies {
     androidTestImplementation(
         libs.androidx.espresso.core
     )
+
+
 }
