@@ -17,6 +17,9 @@ import kotlinx.coroutines.launch
 import android.content.Intent
 import com.example.smartattendance.ui.meeting.CreateMeetingActivity
 
+import android.app.Activity
+import androidx.activity.result.contract.ActivityResultContracts
+
 class CourseDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCourseDetailBinding
@@ -33,6 +36,22 @@ class CourseDetailActivity : AppCompatActivity() {
 
         const val EXTRA_CAN_CREATE_MEETING =  "extra_can_create_meeting"
     }
+
+    private val createMeetingLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+
+            if (result.resultCode == Activity.RESULT_OK) {
+
+                val courseId =
+                    intent.getStringExtra(EXTRA_COURSE_ID)
+
+                if (!courseId.isNullOrBlank()) {
+                    meetingViewModel.loadMeetings(courseId)
+                }
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,7 +106,7 @@ class CourseDetailActivity : AppCompatActivity() {
                 )
             }
 
-            startActivity(createIntent)
+            createMeetingLauncher.launch(createIntent)
         }
 
         setupMeetingList()

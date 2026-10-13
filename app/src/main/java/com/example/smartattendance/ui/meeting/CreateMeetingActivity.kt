@@ -10,9 +10,20 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
+import android.app.Activity
+import android.widget.Toast
+import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.example.smartattendance.data.remote.dto.CreateMeetingRequest
+import kotlinx.coroutines.launch
+
 class CreateMeetingActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCreateMeetingBinding
+    private val createMeetingViewModel:
+            CreateMeetingViewModel by viewModels()
 
     private var selectedDate: LocalDate? = null
     private var selectedStartTime: LocalTime? = null
@@ -55,6 +66,7 @@ class CreateMeetingActivity : AppCompatActivity() {
 
         restoreSelections(savedInstanceState)
         setupListeners()
+        observeCreateMeetingState()
     }
 
     private fun setupListeners() {
@@ -177,9 +189,25 @@ class CreateMeetingActivity : AppCompatActivity() {
         // Đưa dữ liệu hợp lệ vào ViewModel.
         // Chưa gửi HTTP request trong bước này.
 
-        showError(
-            "Dữ liệu hợp lệ. Chưa kết nối chức năng lưu."
+        val courseId =
+            intent.getStringExtra(EXTRA_COURSE_ID)
+
+        if (courseId.isNullOrBlank()) {
+            showError("Không xác định được môn học")
+            return
+        }
+
+        val request = CreateMeetingRequest(
+            courseId = courseId,
+            meetingNumber = number,
+            meetingDate = date.toString(),
+            title = title.ifBlank { null },
+            startTime = start.format(timeFormatter),
+            endTime = end.format(timeFormatter),
+            room = room.ifBlank { null }
         )
+
+        createMeetingViewModel.createMeeting(request)
     }
 
     private fun showError(message: String) {
@@ -223,5 +251,54 @@ class CreateMeetingActivity : AppCompatActivity() {
         }
 
         super.onSaveInstanceState(outState)
+    }
+
+    private fun observeCreateMeetingState() {
+
+        lifecycleScope.launch {
+
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+
+                createMeetingViewModel.uiState.collect { state ->
+                    renderCreateMeetingState(state)
+                }
+            }
+        }
+    }
+
+    private fun renderCreateMeetingState(
+        state: CreateMeetingUiState
+    ) {
+
+        when (state) {
+
+            CreateMeetingUiState.Idle -> {
+                binding.btnCreateMeeting.isEnabled = true
+            }
+
+            CreateMeetingUiState.Loading -> {
+                binding.btnCreateMeeting.isEnabled = false
+                binding.btnCreateMeeting.text = "Đang tạo..."
+                binding.tvFormError.visibility = View.GONE
+            }
+
+            CreateMeetingUiState.Success -> {
+
+                Toast.makeText(
+                    this,
+                    "Tạo buổi học thành công",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                setResult(Activity.RESULT_OK)
+                finish()
+            }
+
+            is CreateMeetingUiState.Error -> {
+                binding.btnCreateMeeting.isEnabled = true
+                binding.btnCreateMeeting.text = "Tạo buổi học"
+                showError(state.message)
+            }
+        }
     }
 }
