@@ -1,8 +1,10 @@
+
 package com.example.smartattendance.ui.meeting
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smartattendance.data.repository.ClassMeetingRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,25 +23,27 @@ class ClassMeetingViewModel(
     val uiState: StateFlow<ClassMeetingUiState> =
         _uiState.asStateFlow()
 
+    private var loadJob: Job? = null
+
     fun loadMeetings(courseId: String) {
 
-        viewModelScope.launch {
+        loadJob?.cancel()
+
+        loadJob = viewModelScope.launch {
 
             _uiState.value = ClassMeetingUiState.Loading
 
-            repository
-                .getMeetings(courseId)
+            repository.getMeetings(courseId)
                 .onSuccess { meetings ->
 
                     _uiState.value =
                         ClassMeetingUiState.Success(meetings)
                 }
-                .onFailure { exception ->
+                .onFailure {
 
                     _uiState.value =
                         ClassMeetingUiState.Error(
-                            exception.message
-                                ?: "Không thể tải danh sách buổi học"
+                            "Không thể tải danh sách buổi học. Vui lòng thử lại."
                         )
                 }
         }

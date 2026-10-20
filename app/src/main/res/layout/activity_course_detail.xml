@@ -31,13 +31,30 @@
         android:text="Tạo buổi học"
         android:visibility="gone" />
 
-    <TextView
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="Danh sách buổi học"
-        android:textSize="20sp"
-        android:textStyle="bold" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Danh sách buổi học"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnRefreshMeetings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Làm mới" />
+
+    </LinearLayout>
+
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -61,6 +78,14 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
         android:textColor="#B00020"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btnRetryMeetings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Thử lại"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView

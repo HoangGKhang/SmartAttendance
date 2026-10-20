@@ -111,6 +111,8 @@ class CourseDetailActivity : AppCompatActivity() {
 
         setupMeetingList()
 
+        setupRefreshActions(courseId)
+
         observeMeetings()
 
         if (savedInstanceState == null) {
@@ -131,6 +133,18 @@ class CourseDetailActivity : AppCompatActivity() {
         }
     }
 
+
+    private fun setupRefreshActions(courseId: String) {
+
+        binding.btnRefreshMeetings.setOnClickListener {
+            meetingViewModel.loadMeetings(courseId)
+        }
+
+        binding.btnRetryMeetings.setOnClickListener {
+            meetingViewModel.loadMeetings(courseId)
+        }
+    }
+
     private fun observeMeetings() {
 
         lifecycleScope.launch {
@@ -144,14 +158,18 @@ class CourseDetailActivity : AppCompatActivity() {
         }
     }
 
+
     private fun renderMeetingState(
         state: ClassMeetingUiState
     ) {
-
         binding.progressBar.visibility = View.GONE
         binding.tvEmpty.visibility = View.GONE
         binding.tvError.visibility = View.GONE
+        binding.btnRetryMeetings.visibility = View.GONE
         binding.rvMeetings.visibility = View.GONE
+
+        binding.btnRefreshMeetings.isEnabled =
+            state !is ClassMeetingUiState.Loading
 
         when (state) {
 
@@ -176,6 +194,8 @@ class CourseDetailActivity : AppCompatActivity() {
 
                 binding.tvError.text = state.message
                 binding.tvError.visibility = View.VISIBLE
+
+                binding.btnRetryMeetings.visibility = View.VISIBLE
             }
         }
     }

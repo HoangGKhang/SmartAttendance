@@ -1,7 +1,10 @@
+
 package com.example.smartattendance.ui.meeting
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.smartattendance.data.model.ClassMeeting
 import com.example.smartattendance.data.model.MeetingStatus
@@ -9,20 +12,15 @@ import com.example.smartattendance.databinding.ItemClassMeetingBinding
 import java.time.format.DateTimeFormatter
 
 class ClassMeetingAdapter :
-    RecyclerView.Adapter<ClassMeetingAdapter.MeetingViewHolder>() {
-
-    private var meetings: List<ClassMeeting> = emptyList()
+    ListAdapter<ClassMeeting, ClassMeetingAdapter.MeetingViewHolder>(
+        MeetingDiffCallback
+    ) {
 
     private val dateFormatter =
         DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
     private val timeFormatter =
         DateTimeFormatter.ofPattern("HH:mm")
-
-    fun submitList(newMeetings: List<ClassMeeting>) {
-        meetings = newMeetings
-        notifyDataSetChanged()
-    }
 
     override fun onCreateViewHolder(
         parent: ViewGroup,
@@ -42,11 +40,7 @@ class ClassMeetingAdapter :
         holder: MeetingViewHolder,
         position: Int
     ) {
-        holder.bind(meetings[position])
-    }
-
-    override fun getItemCount(): Int {
-        return meetings.size
+        holder.bind(getItem(position))
     }
 
     inner class MeetingViewHolder(
@@ -86,5 +80,26 @@ class ClassMeetingAdapter :
                     MeetingStatus.CANCELLED -> "Đã hủy"
                 }
         }
+    }
+
+    companion object {
+
+        private val MeetingDiffCallback =
+            object : DiffUtil.ItemCallback<ClassMeeting>() {
+
+                override fun areItemsTheSame(
+                    oldItem: ClassMeeting,
+                    newItem: ClassMeeting
+                ): Boolean {
+                    return oldItem.id == newItem.id
+                }
+
+                override fun areContentsTheSame(
+                    oldItem: ClassMeeting,
+                    newItem: ClassMeeting
+                ): Boolean {
+                    return oldItem == newItem
+                }
+            }
     }
 }
