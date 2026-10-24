@@ -1,7 +1,6 @@
 
 import {
   authenticateRequest,
-  AuthenticationError,
 } from "../_shared/auth.ts";
 
 import {
@@ -16,28 +15,27 @@ import {
 
 import {
   createMeetingService,
-  ForbiddenError,
 } from "./service.ts";
 
-import { RepositoryError } from "./repository.ts";
+import {
+  mapCreateMeetingError,
+} from "./errors.ts";
 
-/**
- * HTTP Entry Point
- *
- * POST /functions/v1/create-class-meeting
- */
 Deno.serve(async (req: Request): Promise<Response> => {
 
-  // 1. Chỉ chấp nhận HTTP POST
+  // Chỉ cho phép HTTP POST
   if (req.method !== "POST") {
-    return errorResponse("Method not allowed", 405);
+    return errorResponse(
+      "Method not allowed",
+      405,
+    );
   }
 
   try {
-    // 2. Xác thực người dùng từ Bearer JWT
+    // 1. Authentication
     const userId = await authenticateRequest(req);
 
-    // 3. Đọc JSON Request Body
+    // 2. Parse JSON
     let body: unknown;
 
     try {
@@ -46,63 +44,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
       throw new ValidationError("Invalid JSON body");
     }
 
-    // 4. Kiểm tra và chuẩn hóa dữ liệu
+    // 3. Validation
     const input = validateCreateMeeting(body);
 
-    // 5. Thực hiện nghiệp vụ tạo Meeting
+    // 4. Business logic
     const meeting = await createMeetingService(
       userId,
       input,
     );
 
-    // 6. Trả kết quả thành công
-    return jsonResponse({ meeting }, 201);
+    // 5. Success response
+    return jsonResponse(
+      { meeting },
+      201,
+    );
 
   } catch (error: unknown) {
 
-    // Chưa xác thực hoặc JWT không hợp lệ
-    if (error instanceof AuthenticationError) {
-      return errorResponse(error.message, 401);
-    }
+    // Ghi log lỗi trên Backend
+    console.error("Create meeting request failed", error);
 
-    // Dữ liệu đầu vào không hợp lệ
-    if (error instanceof ValidationError) {
-      return errorResponse(error.message, 400);
-    }
-
-    // Không có quyền tạo Meeting
-    if (error instanceof ForbiddenError) {
-      return errorResponse("Forbidden", 403);
-    }
-
-    // Lỗi từ Supabase PostgreSQL
-    if (error instanceof RepositoryError) {
-
-      // Unique constraint violation
-      if (error.code === "23505") {
-        return errorResponse(
-          "Meeting number already exists",
-          409,
-        );
-      }
-
-      console.error("Database operation failed", {
-        operation: error.operation,
-        code: error.code,
-      });
-
-      return errorResponse(
-        "Unable to create meeting",
-        500,
-      );
-    }
-
-    // Lỗi hệ thống không dự đoán trước
-    console.error("Unexpected error", error);
+    // Chuyển lỗi thành HTTP status phù hợp
+    const apiError = mapCreateMeetingError(error);
 
     return errorResponse(
-      "Internal server error",
-      500,
+      apiError.message,
+      apiError.status,
     );
   }
 });

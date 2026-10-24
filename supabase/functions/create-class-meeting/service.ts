@@ -3,7 +3,7 @@ import type { CreateMeetingInput } from "./types.ts";
 
 import {
   isActiveLecturer,
-  insertMeeting,
+  createMeetingWithRecords,
 } from "./repository.ts";
 
 export class ForbiddenError extends Error {
@@ -13,17 +13,11 @@ export class ForbiddenError extends Error {
   }
 }
 
-/**
- * Nghiệp vụ tạo Meeting.
- *
- * userId phải đến từ JWT đã xác thực,
- * không lấy trực tiếp từ request body.
- */
 export async function createMeetingService(
   userId: string,
   input: CreateMeetingInput,
 ) {
-  // 1. Kiểm tra quyền giảng viên
+  // Kiểm tra quyền sớm để trả HTTP 403.
   const canCreate = await isActiveLecturer(
     userId,
     input.courseId,
@@ -33,9 +27,9 @@ export async function createMeetingService(
     throw new ForbiddenError();
   }
 
-  // 2. Tạo Meeting
-  const meeting = await insertMeeting(input);
-
-  // 3. Trả kết quả cho Controller
-  return meeting;
+  // RPC kiểm tra lại quyền trong transaction.
+  return await createMeetingWithRecords(
+    userId,
+    input,
+  );
 }

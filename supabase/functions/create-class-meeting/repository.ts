@@ -8,11 +8,13 @@ export class RepositoryError extends Error {
   constructor(
     public readonly operation: string,
     public readonly code?: string,
+    public readonly databaseMessage?: string,
   ) {
     super(`Database operation failed: ${operation}`);
     this.name = "RepositoryError";
   }
 }
+
 
 /**
  * Kiểm tra người dùng có membership giảng viên
@@ -47,32 +49,48 @@ export async function isActiveLecturer(
  *
  * Chưa sinh Attendance Records trong bước này.
  */
-export async function insertMeeting(
+
+/**
+ * Tạo Meeting cùng Attendance Records
+ * bằng PostgreSQL RPC Transaction.
+ *
+ * userId lấy từ JWT đã xác thực.
+ */
+export async function createMeetingWithRecords(
+  userId: string,
   input: CreateMeetingInput,
 ) {
-  const { data, error } = await admin
-    .from("class_meetings")
-    .insert({
-      course_id: input.courseId,
-      meeting_number: input.meetingNumber,
-      meeting_date: input.meetingDate,
-      title: input.title,
-      start_time: input.startTime,
-      end_time: input.endTime,
-      room: input.room,
-      status: "SCHEDULED",
-    })
-    .select()
-    .single();
+  const { data, error } = await admin.rpc(
+    "create_meeting_with_records",
+    {
+      p_user_id: userId,
+      p_course_id: input.courseId,
+      p_meeting_number: input.meetingNumber,
+      p_meeting_date: input.meetingDate,
+      p_title: input.title,
+      p_start_time: input.startTime,
+      p_end_time: input.endTime,
+      p_room: input.room,
+    },
+  );
 
   if (error) {
-    console.error("Meeting insert failed", error);
+    console.error("Create meeting RPC failed", error);
 
     throw new RepositoryError(
-      "insert meeting",
+      "create meeting with records",
       error.code,
+      error.message,
+    );
+  }
+
+  if (!data) {
+    throw new RepositoryError(
+      "create meeting with records",
+      "EMPTY_RESULT",
     );
   }
 
   return data;
 }
+
