@@ -1,4 +1,8 @@
+
 package com.example.smartattendance.data.model
 
-class AttendanceSessionStatus {
+enum class AttendanceSessionStatus {
+    DRAFT,
+    OPEN,
+    CLOSED
 }

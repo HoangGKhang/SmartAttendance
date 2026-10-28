@@ -11,8 +11,9 @@ import com.example.smartattendance.data.model.MeetingStatus
 import com.example.smartattendance.databinding.ItemClassMeetingBinding
 import java.time.format.DateTimeFormatter
 
-class ClassMeetingAdapter :
-    ListAdapter<ClassMeeting, ClassMeetingAdapter.MeetingViewHolder>(
+class ClassMeetingAdapter(
+    private val onMeetingClick: (ClassMeeting) -> Unit
+) : ListAdapter<ClassMeeting, ClassMeetingAdapter.MeetingViewHolder>(
         MeetingDiffCallback
     ) {
 
@@ -48,6 +49,10 @@ class ClassMeetingAdapter :
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(meeting: ClassMeeting) {
+
+            binding.root.setOnClickListener {
+                onMeetingClick(meeting)
+            }
 
             binding.tvMeetingTitle.text =
                 meeting.title

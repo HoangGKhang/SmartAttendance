@@ -14,6 +14,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
 
+
+        <activity
+            android:name=".ui.attendance.AttendanceSessionActivity"
+            android:exported="false" />
+
+
         <activity
             android:name=".ui.meeting.CreateMeetingActivity"
             android:exported="false" />

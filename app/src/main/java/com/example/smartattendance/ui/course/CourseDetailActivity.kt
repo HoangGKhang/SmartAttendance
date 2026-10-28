@@ -20,6 +20,9 @@ import com.example.smartattendance.ui.meeting.CreateMeetingActivity
 import android.app.Activity
 import androidx.activity.result.contract.ActivityResultContracts
 
+import com.example.smartattendance.ui.attendance.AttendanceSessionActivity
+import com.example.smartattendance.data.model.MeetingStatus
+
 class CourseDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCourseDetailBinding
@@ -122,7 +125,28 @@ class CourseDetailActivity : AppCompatActivity() {
 
     private fun setupMeetingList() {
 
-        meetingAdapter = ClassMeetingAdapter()
+        val canOpenSession = intent.getBooleanExtra(
+            EXTRA_CAN_CREATE_MEETING,
+            false
+        )
+
+        meetingAdapter = ClassMeetingAdapter { meeting ->
+            if (canOpenSession &&
+                meeting.status == MeetingStatus.SCHEDULED
+            ) {
+                val sessionIntent = Intent(
+                    this@CourseDetailActivity,
+                    AttendanceSessionActivity::class.java
+                ).apply {
+                    putExtra(
+                        AttendanceSessionActivity.EXTRA_MEETING_ID,
+                        meeting.id
+                    )
+                }
+
+                startActivity(sessionIntent)
+            }
+        }
 
         binding.rvMeetings.apply {
             layoutManager = LinearLayoutManager(
