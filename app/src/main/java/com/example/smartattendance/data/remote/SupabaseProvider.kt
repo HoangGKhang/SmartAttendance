@@ -1,9 +1,10 @@
 package com.example.smartattendance.data.remote
 
 import com.example.smartattendance.BuildConfig
-import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.functions.Functions
 
 object SupabaseProvider {
 
@@ -13,5 +14,6 @@ object SupabaseProvider {
     ) {
         install(Auth)
         install(Postgrest)
+        install(Functions)
     }
 }

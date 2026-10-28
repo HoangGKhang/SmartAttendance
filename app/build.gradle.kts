@@ -1,54 +1,64 @@
 import java.util.Properties
 
-// Đọc các giá trị trong local.properties ở root project.
-// Ví dụ:
-// SUPABASE_URL=https://xxxxx.supabase.co
-// SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxx
-val localProperties = Properties().apply {
-    val localPropertiesFile = rootProject.file("local.properties")
-
-    if (localPropertiesFile.exists()) {
-        localPropertiesFile.inputStream().use {
-            load(it)
-        }
-    }
-}
-
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.serialization)
 }
 
+
+// =========================
+// Đọc local.properties
+// =========================
+
+val localProperties = Properties().apply {
+
+    val localPropertiesFile =
+        rootProject.file("local.properties")
+
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile
+            .inputStream()
+            .use {
+                load(it)
+            }
+    }
+}
+
+
+// =========================
+// Android config
+// =========================
+
 android {
+
     namespace = "com.example.smartattendance"
 
-    // Giữ Android 36.1
-    compileSdk {
-        version = release(37) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 37
 
     defaultConfig {
+
         applicationId = "com.example.smartattendance"
 
-        // Supabase Kotlin
         minSdk = 26
-
         targetSdk = 36
 
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner =
+            "androidx.test.runner.AndroidJUnitRunner"
 
-        // local.properties -> BuildConfig.SUPABASE_URL
+
+        // =========================
+        // Supabase BuildConfig
+        // =========================
+
         buildConfigField(
             "String",
             "SUPABASE_URL",
             "\"${localProperties.getProperty("SUPABASE_URL", "")}\""
         )
 
-        // local.properties -> BuildConfig.SUPABASE_PUBLISHABLE_KEY
         buildConfigField(
             "String",
             "SUPABASE_PUBLISHABLE_KEY",
@@ -56,27 +66,62 @@ android {
         )
     }
 
+
+    // =========================
+    // Build Types
+    // =========================
+
     buildTypes {
+
         release {
+
             isMinifyEnabled = false
 
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
+                getDefaultProguardFile(
+                    "proguard-android-optimize.txt"
+                ),
                 "proguard-rules.pro"
             )
         }
     }
 
-    // Cho phép sử dụng BuildConfig
+
+    // =========================
+    // Android Features
+    // =========================
+
     buildFeatures {
+
+        // Cho phép:
+        // BuildConfig.SUPABASE_URL
+        // BuildConfig.SUPABASE_PUBLISHABLE_KEY
         buildConfig = true
+
+        // Cho phép:
+        // ActivityLoginBinding
+        viewBinding = true
     }
 
+
+    // =========================
+    // Java compatibility
+    // =========================
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+
+        sourceCompatibility =
+            JavaVersion.VERSION_11
+
+        targetCompatibility =
+            JavaVersion.VERSION_11
     }
 }
+
+
+// =========================
+// Dependencies
+// =========================
 
 dependencies {
 
@@ -84,42 +129,75 @@ dependencies {
     // AndroidX
     // =========================
 
-    implementation(libs.androidx.activity.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.material)
+    implementation(
+        libs.androidx.core.ktx
+    )
 
-    // =========================
-    // Test
-    // =========================
+    implementation(
+        libs.androidx.appcompat
+    )
 
-    testImplementation(libs.junit)
+    implementation(
+        libs.androidx.activity.ktx
+    )
 
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.junit)
+    implementation(
+        libs.androidx.constraintlayout
+    )
+
+    implementation(
+        libs.material
+    )
+
 
     // =========================
     // Supabase
     // =========================
 
+
+    // Login / Logout / Session / JWT
     implementation(
-        platform("io.github.jan-tennert.supabase:bom:3.2.0")
+        libs.supabase.auth
     )
 
+    // Data API / PostgreSQL / profiles
     implementation(
-        "io.github.jan-tennert.supabase:auth-kt"
+        libs.supabase.postgrest
     )
 
-    implementation(
-        "io.github.jan-tennert.supabase:postgrest-kt"
-    )
+    // Supabase Edge Functions
+    implementation(libs.supabase.functions)
 
     // =========================
     // Ktor
     // =========================
 
+    // HTTP engine cho Android
     implementation(
-        "io.ktor:ktor-client-android:3.2.3"
+        libs.ktor.client.android
     )
+
+
+    // =========================
+    // Unit Test
+    // =========================
+
+    testImplementation(
+        libs.junit
+    )
+
+
+    // =========================
+    // Android Test
+    // =========================
+
+    androidTestImplementation(
+        libs.androidx.junit
+    )
+
+    androidTestImplementation(
+        libs.androidx.espresso.core
+    )
+
+
 }

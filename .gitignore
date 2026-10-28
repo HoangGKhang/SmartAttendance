@@ -14,8 +14,7 @@
 .cxx
 local.properties
 
-
-# Android Studio / IntelliJ
+# Android Studio
 .idea/.name
 .idea/AndroidProjectSystem.xml
 .idea/compiler.xml
@@ -24,20 +23,17 @@ local.properties
 .idea/misc.xml
 .idea/runConfigurations.xml
 .idea/vcs.xml
-
-# User-specific IDE files
 .idea/workspace.xml
 .idea/caches/
 .idea/libraries/
 .idea/shelf/
 
-# Android local config
+# Local config
 /local.properties
 
-# Build output
-.gradle/
-build/
-**/build/
-
-# Module files
-*.iml
+#FILE
+PROJECT_OVERVIEW.md
+node_modules/
+package-lock.json
+package.json
+supabase/.temp/
