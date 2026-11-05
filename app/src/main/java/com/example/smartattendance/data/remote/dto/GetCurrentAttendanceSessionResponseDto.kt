@@ -1,4 +1,8 @@
 package com.example.smartattendance.data.remote.dto
 
-class GetCurrentAttendanceSessionResponseDto {
-}
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class GetCurrentAttendanceSessionResponseDto(
+    val session: AttendanceSessionDto?
+)
