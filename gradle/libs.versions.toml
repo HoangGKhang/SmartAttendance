@@ -12,6 +12,7 @@ constraintlayout = "2.2.2"
 supabase = "3.6.0"
 ktor = "3.4.3"
 desugarJdkLibs = "2.1.5"
+zxing = "3.5.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -22,6 +23,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 # =========================
 # Supabase

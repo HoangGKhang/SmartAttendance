@@ -19,6 +19,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
+import android.widget.ImageView
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 class AttendanceSessionActivity : ComponentActivity() {
 
     private val viewModel: AttendanceSessionViewModel by viewModels()
@@ -32,11 +36,17 @@ class AttendanceSessionActivity : ComponentActivity() {
     private lateinit var btnCloseSession: Button
     private lateinit var btnRefreshSession: Button
 
+
     private var meetingId: String? = null
 
     private lateinit var tvSessionCountdown: TextView
 
     private var lastAutoRefreshSessionId: String? = null
+
+
+    private lateinit var layoutQrContainer: View
+    private lateinit var ivAttendanceQr: ImageView
+    private lateinit var tvQrStatus: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +65,14 @@ class AttendanceSessionActivity : ComponentActivity() {
         tvSessionCountdown =
             findViewById(R.id.tvSessionCountdown)
 
+        layoutQrContainer =
+            findViewById(R.id.layoutQrContainer)
+
+        ivAttendanceQr =
+            findViewById(R.id.ivAttendanceQr)
+
+        tvQrStatus =
+            findViewById(R.id.tvQrStatus)
         // 2. Nhận Meeting ID.
         meetingId = intent.getStringExtra(EXTRA_MEETING_ID)
 
@@ -84,7 +102,7 @@ class AttendanceSessionActivity : ComponentActivity() {
             ) {
                 viewModel.createSession(
                     meetingId = id,
-                    durationMinutes = 1
+                    durationMinutes = 15
                 )
             }
         }
@@ -101,6 +119,8 @@ class AttendanceSessionActivity : ComponentActivity() {
             }
         }
 
+        observeQrUi()
+
         // 6. Quan sát StateFlow.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -111,6 +131,18 @@ class AttendanceSessionActivity : ComponentActivity() {
                     renderUi(state)
 
                     val session = state.session
+
+
+                    // Khi Session OPEN, yêu cầu QR nếu chưa có mã hợp lệ.
+                    if (
+                        state.isInitialized &&
+                        !state.isLoading &&
+                        session?.status == AttendanceSessionStatus.OPEN &&
+                        session.expiresAt?.isAfter(Instant.now()) == true
+                    ) {
+                        viewModel.requestQr()
+                    }
+
 
                     // 2. Chỉ đếm ngược khi có Session OPEN.
                     if (
@@ -185,6 +217,7 @@ class AttendanceSessionActivity : ComponentActivity() {
         ) {
             viewModel.loadCurrentSession(id)
         }
+
     }
 
     private fun renderUi(state: AttendanceSessionUiState) {
@@ -245,6 +278,22 @@ class AttendanceSessionActivity : ComponentActivity() {
                 !now.isBefore(expiresAt)
             } == true
 
+
+        tvSessionStatus.text = when {
+            session.status == AttendanceSessionStatus.CLOSED ->
+                "Phiên đã đóng"
+
+            isExpired ->
+                "Phiên đã hết hạn"
+
+            session.status == AttendanceSessionStatus.OPEN ->
+                "Đang điểm danh"
+
+            else ->
+                "Chưa xác định"
+        }
+
+
         tvSessionCountdown.text = when {
             state.isLoading ->
                 "Đang đồng bộ..."
@@ -284,6 +333,176 @@ class AttendanceSessionActivity : ComponentActivity() {
             session.status == AttendanceSessionStatus.OPEN &&
                     state.errorMessage == null
     }
+
+
+    private fun observeQrUi() {
+
+        lifecycleScope.launch {
+
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+
+                viewModel.qrUiState.collectLatest { qrState ->
+
+                    // 1. Kiểm tra trạng thái Session.
+                    val sessionState = viewModel.uiState.value
+                    val session = sessionState.session
+
+                    val sessionIsOpen =
+                        sessionState.isInitialized &&
+                                session?.status ==
+                                AttendanceSessionStatus.OPEN &&
+                                session.expiresAt
+                                    ?.isAfter(Instant.now()) == true
+
+                    // 2. Session không hợp lệ: ẩn QR.
+                    if (!sessionIsOpen || session == null) {
+                        layoutQrContainer.visibility = View.GONE
+                        ivAttendanceQr.setImageDrawable(null)
+
+                        return@collectLatest
+                    }
+
+                    // 3. Hiển thị khu vực QR.
+                    layoutQrContainer.visibility = View.VISIBLE
+
+                    // 4. Chỉ nhận token thuộc đúng Session.
+                    val token = qrState.qrToken
+                    val expiresAt = qrState.qrExpiresAt
+
+                    val validToken =
+                        qrState.sessionId == session.id &&
+                                !token.isNullOrBlank() &&
+                                expiresAt?.isAfter(Instant.now()) == true
+
+                    if (!validToken) {
+
+                        ivAttendanceQr.setImageDrawable(null)
+                        ivAttendanceQr.visibility = View.GONE
+
+                        tvQrStatus.text = when {
+                            qrState.isLoading ->
+                                "Đang lấy mã QR..."
+
+                            qrState.errorMessage != null ->
+                                qrState.errorMessage
+
+                            else ->
+                                "Đang chờ cấp mã QR..."
+                        }
+
+
+                        // Thử lại có giới hạn nhịp khi API cấp QR lỗi.
+                        if (
+                            !qrState.isLoading &&
+                            qrState.errorMessage != null
+                        ) {
+                            delay(2000L)
+
+                            val current = viewModel.uiState.value
+                            val currentSession = current.session
+
+                            if (
+                                current.isInitialized &&
+                                !current.isLoading &&
+                                currentSession?.id == session.id &&
+                                currentSession.status ==
+                                AttendanceSessionStatus.OPEN &&
+                                currentSession.expiresAt
+                                    ?.isAfter(Instant.now()) == true
+                            ) {
+                                viewModel.requestQr()
+                            }
+                        }
+
+                        return@collectLatest
+                    }
+
+                    // 5. Chưa hiển thị ảnh trong lúc tạo bitmap.
+                    ivAttendanceQr.visibility = View.GONE
+                    tvQrStatus.text = "Đang tạo hình QR..."
+
+                    try {
+
+                        // 6. Tạo Bitmap ở background thread.
+                        val bitmap = withContext(
+                            Dispatchers.Default
+                        ) {
+                            QrBitmapGenerator.generate(
+                                token!!
+                            )
+                        }
+
+                        // 7. Kiểm tra lại vì thời gian có thể
+                        // đã thay đổi khi đang tạo bitmap.
+                        val latestSession =
+                            viewModel.uiState.value.session
+
+                        if (
+                            latestSession?.id != session.id ||
+                            latestSession.status !=
+                            AttendanceSessionStatus.OPEN ||
+                            latestSession.expiresAt
+                                ?.isAfter(Instant.now()) != true ||
+                            expiresAt == null ||
+                            !expiresAt.isAfter(Instant.now())
+                        ) {
+
+                            ivAttendanceQr.setImageDrawable(null)
+                            ivAttendanceQr.visibility = View.GONE
+
+                            tvQrStatus.text =
+                                "QR đã hết hạn"
+
+                            return@collectLatest
+                        }
+
+                        // 8. Hiển thị mã QR.
+                        ivAttendanceQr.setImageBitmap(bitmap)
+                        ivAttendanceQr.visibility = View.VISIBLE
+
+                        tvQrStatus.text =
+                            "Quét mã QR để điểm danh"
+
+
+                        // 9. Tính thời gian QR còn hiệu lực.
+                        val remainingQrMillis =
+                            expiresAt.toEpochMilli() -
+                                    Instant.now().toEpochMilli()
+
+                        // 10. Chờ đến thời điểm QR hết hạn.
+                        // Coroutine tự bị hủy khi Activity STOPPED
+                        // hoặc khi collectLatest nhận QR state mới.
+                        if (remainingQrMillis > 0L) {
+                            delay(remainingQrMillis)
+                        }
+
+                        // 11. Xóa mã đã hết hạn khỏi màn hình.
+                        ivAttendanceQr.setImageDrawable(null)
+                        ivAttendanceQr.visibility = View.GONE
+
+                        tvQrStatus.text =
+                            "Đang cập nhật mã QR..."
+
+                        // 12. Yêu cầu token thuộc cửa sổ tiếp theo.
+                        // ViewModel sẽ tự kiểm tra Session còn OPEN không.
+                        viewModel.requestQr()
+
+                    } catch (e: CancellationException) {
+                        throw e
+
+                    } catch (e: Exception) {
+
+                        ivAttendanceQr.setImageDrawable(null)
+                        ivAttendanceQr.visibility = View.GONE
+
+                        tvQrStatus.text =
+                            "Không thể tạo hình mã QR"
+                    }
+                }
+            }
+        }
+    }
+
 
     companion object {
         const val EXTRA_MEETING_ID = "extra_meeting_id"

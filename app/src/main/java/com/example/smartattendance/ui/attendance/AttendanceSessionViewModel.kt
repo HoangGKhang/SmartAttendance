@@ -13,6 +13,11 @@ import kotlinx.coroutines.launch
 
 import com.example.smartattendance.data.model.AttendanceSessionStatus
 
+
+import java.time.Instant
+import kotlinx.coroutines.Job
+
+
 class AttendanceSessionViewModel(
     private val repository: AttendanceSessionRepository =
         AttendanceSessionRepository()
@@ -25,11 +30,27 @@ class AttendanceSessionViewModel(
     val uiState: StateFlow<AttendanceSessionUiState> =
         _uiState.asStateFlow()
 
+
+    // Trạng thái QR tách biệt khỏi Session.
+    private val _qrUiState = MutableStateFlow(
+        AttendanceQrUiState()
+    )
+
+    val qrUiState: StateFlow<AttendanceQrUiState> =
+        _qrUiState.asStateFlow()
+
+    // Coroutine đang gọi API cấp QR.
+    private var qrRequestJob: Job? = null
+
+
     // MỚI: Tải Session hiện tại từ Backend.
     fun loadCurrentSession(meetingId: String) {
 
         // Không gửi request mới khi đang có request khác.
         if (_uiState.value.isLoading) return
+
+        // Xóa QR khi bắt đầu đồng bộ lại Session.
+        clearQr()
 
         // Đánh dấu đang tải, chưa xác định trạng thái.
         _uiState.update {
@@ -237,6 +258,125 @@ class AttendanceSessionViewModel(
                 }
             }
         }
+    }
+
+
+
+    private fun isSessionEligibleForQr(
+        expectedSessionId: String
+    ): Boolean {
+
+        val state = _uiState.value
+        val session = state.session ?: return false
+
+        return (
+                state.isInitialized &&
+                        !state.isLoading &&
+                        session.id == expectedSessionId &&
+                        session.status == AttendanceSessionStatus.OPEN &&
+                        session.expiresAt?.isAfter(Instant.now()) == true
+                )
+    }
+
+
+    fun requestQr() {
+
+        val state = _uiState.value
+        val session = state.session ?: return
+
+        // 1. Chỉ cấp QR cho Session hợp lệ.
+        if (!isSessionEligibleForQr(session.id)) {
+            clearQr()
+            return
+        }
+
+        val currentQr = _qrUiState.value
+
+        // 2. Không gửi request trùng khi đang tải.
+        if (currentQr.isLoading) return
+
+        // 3. QR hiện tại còn hạn thì chưa cần xin mã mới.
+        if (
+            currentQr.sessionId == session.id &&
+            currentQr.qrToken != null &&
+            currentQr.qrExpiresAt?.isAfter(Instant.now()) == true
+        ) {
+            return
+        }
+
+        // 4. Hủy request trước đó nếu còn tồn tại.
+        qrRequestJob?.cancel()
+
+        // 5. Xóa QR cũ trong lúc tải mã mới.
+        _qrUiState.value = AttendanceQrUiState(
+            sessionId = session.id,
+            isLoading = true
+        )
+
+        // 6. Gọi API bất đồng bộ.
+        qrRequestJob = viewModelScope.launch {
+
+            val result = repository.issueQr(
+                sessionId = session.id
+            )
+
+            // 7. Session có thể đã đóng trong lúc chờ API.
+            if (!isSessionEligibleForQr(session.id)) {
+                _qrUiState.value = AttendanceQrUiState()
+                return@launch
+            }
+
+            result.fold(
+                onSuccess = { response ->
+
+                    val expiresAt = runCatching {
+                        Instant.parse(response.qrExpiresAt)
+                    }.getOrNull()
+
+                    // 8. Không lưu QR đã hết hạn.
+                    if (
+                        expiresAt == null ||
+                        !expiresAt.isAfter(Instant.now())
+                    ) {
+                        _qrUiState.value = AttendanceQrUiState(
+                            sessionId = session.id,
+                            errorMessage = "Mã QR đã hết hạn"
+                        )
+                        return@fold
+                    }
+
+                    // 9. Cập nhật QR thành công.
+                    _qrUiState.value = AttendanceQrUiState(
+                        sessionId = session.id,
+                        qrToken = response.qrToken,
+                        qrExpiresAt = expiresAt,
+                        isLoading = false,
+                        errorMessage = null
+                    )
+                },
+
+                onFailure = { error ->
+
+                    // 10. Lỗi QR không làm thay đổi Session.
+                    _qrUiState.value = AttendanceQrUiState(
+                        sessionId = session.id,
+                        isLoading = false,
+                        errorMessage = error.message
+                            ?: "Không thể tải mã QR"
+                    )
+                }
+            )
+        }
+    }
+
+
+    fun clearQr() {
+        // Hủy request đang chờ.
+        qrRequestJob?.cancel()
+        qrRequestJob = null
+
+        // Xóa cả token và thời điểm hết hạn.
+        _qrUiState.value = AttendanceQrUiState()
     }
 
 

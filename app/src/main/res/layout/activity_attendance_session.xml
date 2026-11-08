@@ -59,6 +59,66 @@
             android:layout_marginTop="16dp"
             android:textSize="14sp" />
 
+
+        <!-- MODULE 7: Khu vực hiển thị Dynamic QR -->
+        <LinearLayout
+            android:id="@+id/layoutQrContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:background="#F3F5F8"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="MÃ QR ĐIỂM DANH"
+                android:textColor="#202937"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+
+            <FrameLayout
+                android:layout_width="280dp"
+                android:layout_height="280dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:background="#FFFFFF">
+
+                <ImageView
+                    android:id="@+id/ivAttendanceQr"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="Mã QR điểm danh"
+                    android:scaleType="fitCenter"
+                    android:visibility="invisible" />
+
+                <ProgressBar
+                    android:id="@+id/progressQr"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="center"
+                    android:visibility="gone" />
+
+            </FrameLayout>
+
+
+            <TextView
+                android:id="@+id/tvQrStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center"
+                android:text="Đang chờ cấp mã QR..."
+                android:textColor="#586474"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+
         <Button
             android:id="@+id/btnStartSession"
             android:layout_width="match_parent"

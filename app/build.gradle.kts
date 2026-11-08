@@ -149,6 +149,8 @@ dependencies {
         libs.material
     )
 
+    // Tạo hình ảnh QR từ token backend.
+    implementation(libs.zxing.core)
 
     // =========================
     // Supabase
@@ -159,6 +161,7 @@ dependencies {
     implementation(
         libs.supabase.auth
     )
+
 
     // Data API / PostgreSQL / profiles
     implementation(

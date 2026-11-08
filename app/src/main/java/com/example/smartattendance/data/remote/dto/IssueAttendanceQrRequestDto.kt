@@ -1,4 +1,9 @@
+
 package com.example.smartattendance.data.remote.dto
 
-class IssueAttendanceQrRequestDto {
-}
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class IssueAttendanceQrRequestDto(
+    val sessionId: String
+)
