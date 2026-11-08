@@ -16,6 +16,9 @@ import com.example.smartattendance.data.model.AttendanceSessionStatus
 import java.time.Instant
 import kotlinx.coroutines.launch
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+
 class AttendanceSessionActivity : ComponentActivity() {
 
     private val viewModel: AttendanceSessionViewModel by viewModels()
@@ -31,6 +34,10 @@ class AttendanceSessionActivity : ComponentActivity() {
 
     private var meetingId: String? = null
 
+    private lateinit var tvSessionCountdown: TextView
+
+    private var lastAutoRefreshSessionId: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_attendance_session)
@@ -44,6 +51,9 @@ class AttendanceSessionActivity : ComponentActivity() {
         btnStartSession = findViewById(R.id.btnStartSession)
         btnCloseSession = findViewById(R.id.btnCloseSession)
         btnRefreshSession = findViewById(R.id.btnRefreshSession)
+
+        tvSessionCountdown =
+            findViewById(R.id.tvSessionCountdown)
 
         // 2. Nhận Meeting ID.
         meetingId = intent.getStringExtra(EXTRA_MEETING_ID)
@@ -74,7 +84,7 @@ class AttendanceSessionActivity : ComponentActivity() {
             ) {
                 viewModel.createSession(
                     meetingId = id,
-                    durationMinutes = 15
+                    durationMinutes = 1
                 )
             }
         }
@@ -94,11 +104,77 @@ class AttendanceSessionActivity : ComponentActivity() {
         // 6. Quan sát StateFlow.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
+
+                viewModel.uiState.collectLatest { state ->
+
+                    // 1. Hiển thị trạng thái hiện tại.
                     renderUi(state)
+
+                    val session = state.session
+
+                    // 2. Chỉ đếm ngược khi có Session OPEN.
+                    if (
+                        state.isLoading ||
+                        !state.isInitialized ||
+                        session == null ||
+                        session.status != AttendanceSessionStatus.OPEN
+                    ) {
+                        return@collectLatest
+                    }
+
+                    // 3. Lấy thời điểm hết hạn.
+                    val expiresAt = session.expiresAt
+
+                    if (expiresAt == null) {
+                        tvSessionCountdown.text =
+                            "Không có thời hạn phiên"
+                        return@collectLatest
+                    }
+
+                    // 4. Cập nhật countdown mỗi giây.
+                    while (true) {
+
+                        val remainingMillis =
+                            expiresAt.toEpochMilli() -
+                                    Instant.now().toEpochMilli()
+
+                        // 5. Phiên đã hết hạn theo đồng hồ Android.
+                        if (remainingMillis <= 0L) {
+
+                            tvSessionCountdown.text =
+                                "00:00 — Đã hết hạn"
+
+                            // Chỉ tự refresh một lần cho cùng Session.
+                            if (lastAutoRefreshSessionId != session.id) {
+                                lastAutoRefreshSessionId = session.id
+
+                                viewModel.loadCurrentSession(id)
+                            }
+
+                            return@collectLatest
+                        }
+
+                        // 6. Làm tròn lên số giây còn lại.
+                        val totalSeconds =
+                            (remainingMillis + 999L) / 1000L
+
+                        val minutes = totalSeconds / 60
+                        val seconds = totalSeconds % 60
+
+                        // 7. Cập nhật giao diện.
+                        tvSessionCountdown.text =
+                            "Còn lại: %02d:%02d".format(
+                                minutes,
+                                seconds
+                            )
+
+                        // 8. Chờ 1 giây trước khi cập nhật tiếp.
+                        delay(1000L)
+                    }
                 }
             }
         }
+
 
         // 7. Tự tải Session khi mở màn hình lần đầu.
         val currentState = viewModel.uiState.value
@@ -169,22 +245,24 @@ class AttendanceSessionActivity : ComponentActivity() {
                 !now.isBefore(expiresAt)
             } == true
 
-        tvSessionStatus.text = when {
-            session.status == AttendanceSessionStatus.CLOSED ->
+        tvSessionCountdown.text = when {
+            state.isLoading ->
+                "Đang đồng bộ..."
+
+            !state.isInitialized ->
+                "--:--"
+
+            state.session == null ->
+                "Chưa có phiên đang mở"
+
+            state.session.status == AttendanceSessionStatus.CLOSED ->
                 "Phiên đã đóng"
 
-            session.isActive(now) ->
-                "Phiên đang diễn ra"
-
-            session.status == AttendanceSessionStatus.OPEN &&
-                    isExpired ->
-                "Phiên hết hạn (Database: OPEN)"
-
-            session.status == AttendanceSessionStatus.OPEN ->
-                "Phiên OPEN nhưng chưa hoạt động"
+            state.session.status == AttendanceSessionStatus.OPEN ->
+                "Đang tính thời gian..."
 
             else ->
-                "Trạng thái: ${session.status}"
+                "--:--"
         }
 
         val sessionInfo =

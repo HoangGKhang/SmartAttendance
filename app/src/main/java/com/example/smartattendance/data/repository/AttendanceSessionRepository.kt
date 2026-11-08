@@ -27,7 +27,7 @@ class AttendanceSessionRepository {
 
     suspend fun createSession(
         meetingId: String,
-        durationMinutes: Int = 15
+        durationMinutes: Int = 1
     ): Result<AttendanceSession> {
 
         return try {
