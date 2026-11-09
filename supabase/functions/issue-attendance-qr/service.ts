@@ -225,19 +225,4 @@ export async function issueAttendanceQrService(
     "QR_WINDOW_EXPIRED",
   );
 
-  // 11. Ghép token công khai.
-  const qrToken = [
-    QR_VERSION,
-    context.session_id,
-    String(window),
-    signature,
-  ].join(".");
-
-  // 12. Trả đúng hợp đồng API.
-  return {
-    qrToken,
-    qrExpiresAt: new Date(
-      qrExpiresMs,
-    ).toISOString(),
-  };
 }
