@@ -23,6 +23,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.example.smartattendance.ui.attendance.AttendanceSessionActivity
 import com.example.smartattendance.data.model.MeetingStatus
 
+import com.example.smartattendance.ui.attendance.StudentQrScanActivity
+
+
 class CourseDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCourseDetailBinding
@@ -130,10 +133,18 @@ class CourseDetailActivity : AppCompatActivity() {
             false
         )
 
+
         meetingAdapter = ClassMeetingAdapter { meeting ->
-            if (canOpenSession &&
-                meeting.status == MeetingStatus.SCHEDULED
-            ) {
+
+            // Chỉ cho phép chọn Meeting đang SCHEDULED.
+            if (meeting.status != MeetingStatus.SCHEDULED) {
+                return@ClassMeetingAdapter
+            }
+
+            if (canOpenSession) {
+
+                // GIẢNG VIÊN:
+                // Mở màn hình quản lý Session.
                 val sessionIntent = Intent(
                     this@CourseDetailActivity,
                     AttendanceSessionActivity::class.java
@@ -145,8 +156,25 @@ class CourseDetailActivity : AppCompatActivity() {
                 }
 
                 startActivity(sessionIntent)
+
+            } else {
+
+                // SINH VIÊN:
+                // Mở màn hình quét QR.
+                val scanIntent = Intent(
+                    this@CourseDetailActivity,
+                    StudentQrScanActivity::class.java
+                ).apply {
+                    putExtra(
+                        StudentQrScanActivity.EXTRA_MEETING_ID,
+                        meeting.id
+                    )
+                }
+
+                startActivity(scanIntent)
             }
         }
+
 
         binding.rvMeetings.apply {
             layoutManager = LinearLayoutManager(
