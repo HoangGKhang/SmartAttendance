@@ -23,6 +23,10 @@ import android.widget.ImageView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+import kotlinx.coroutines.flow.combine
+
+
 class AttendanceSessionActivity : ComponentActivity() {
 
     private val viewModel: AttendanceSessionViewModel by viewModels()
@@ -341,10 +345,9 @@ class AttendanceSessionActivity : ComponentActivity() {
 
             repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-                viewModel.qrUiState.collectLatest { qrState ->
-
-                    // 1. Kiểm tra trạng thái Session.
-                    val sessionState = viewModel.uiState.value
+                combine(viewModel.uiState, viewModel.qrUiState) { sessionState, qrState ->
+                    sessionState to qrState
+                }.collectLatest { (sessionState, qrState) ->
                     val session = sessionState.session
 
                     val sessionIsOpen =
@@ -453,6 +456,13 @@ class AttendanceSessionActivity : ComponentActivity() {
                             tvQrStatus.text =
                                 "QR đã hết hạn"
 
+                            if (
+                                latestSession?.id == session.id &&
+                                expiresAt != null &&
+                                !expiresAt.isAfter(Instant.now())
+                            ) {
+                                viewModel.requestQr()
+                            }
                             return@collectLatest
                         }
 
