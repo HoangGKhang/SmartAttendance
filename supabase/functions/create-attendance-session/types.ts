@@ -6,12 +6,19 @@
 export interface CreateSessionInput {
   meetingId: string;
   durationMinutes: number;
+
+  // GPS Configuration
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+
+  // Độ chính xác do thiết bị khai báo.
+  accuracyMeters: number;
 }
 
 /**
- * Dữ liệu an toàn trả về Android.
- *
- * Không có qr_secret.
+ * Dữ liệu Session trả về Android.
+ * Không chứa qr_secret.
  */
 export interface AttendanceSessionResponse {
   id: string;

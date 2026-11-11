@@ -21,14 +21,20 @@ export async function insertAttendanceSession(
   userId: string,
   input: CreateSessionInput,
 ): Promise<AttendanceSessionResponse> {
-  const { data, error } = await admin.rpc(
-    "create_attendance_session",
-    {
-      p_user_id: userId,
-      p_meeting_id: input.meetingId,
-      p_duration_minutes: input.durationMinutes,
-    },
-  );
+
+const { data, error } = await admin.rpc(
+  "create_attendance_session_with_gps",
+  {
+    p_user_id: userId,
+    p_meeting_id: input.meetingId,
+    p_duration_minutes: input.durationMinutes,
+
+    p_latitude: input.latitude,
+    p_longitude: input.longitude,
+    p_radius_meters: input.radiusMeters,
+  },
+);
+
 
   if (error) {
     console.error("Create attendance session RPC failed", {
