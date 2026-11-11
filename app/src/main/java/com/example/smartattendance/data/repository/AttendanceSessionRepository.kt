@@ -34,7 +34,11 @@ class AttendanceSessionRepository {
 
     suspend fun createSession(
         meetingId: String,
-        durationMinutes: Int = 1
+        durationMinutes: Int,
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Int,
+        accuracyMeters: Double
     ): Result<AttendanceSession> {
 
         return try {
@@ -53,7 +57,11 @@ class AttendanceSessionRepository {
             // 2. Tạo request DTO.
             val request = CreateAttendanceSessionRequestDto(
                 meetingId = meetingId,
-                durationMinutes = durationMinutes
+                durationMinutes = durationMinutes,
+                latitude = latitude,
+                longitude = longitude,
+                radiusMeters = radiusMeters,
+                accuracyMeters = accuracyMeters
             )
 
             // 3. Gọi Supabase Edge Function.

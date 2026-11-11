@@ -113,7 +113,11 @@ class AttendanceSessionViewModel(
     // CŨ: Tạo Session, bổ sung kiểm tra trạng thái.
     fun createSession(
         meetingId: String,
-        durationMinutes: Int = 15
+        durationMinutes: Int,
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Int,
+        accuracyMeters: Double
     ) {
         val currentState = _uiState.value
 
@@ -140,7 +144,11 @@ class AttendanceSessionViewModel(
             try {
                 val result = repository.createSession(
                     meetingId = meetingId,
-                    durationMinutes = durationMinutes
+                    durationMinutes = durationMinutes,
+                    latitude = latitude,
+                    longitude = longitude,
+                    radiusMeters = radiusMeters,
+                    accuracyMeters = accuracyMeters
                 )
 
                 result.fold(

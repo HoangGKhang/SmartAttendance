@@ -126,6 +126,22 @@
             android:layout_marginTop="24dp"
             android:text="Bắt đầu điểm danh" />
 
+        <!-- GPS: Lecturer Location -->
+        <TextView
+            android:id="@+id/tvGpsInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Vị trí GPS: Chưa lấy"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/btnGetLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Lấy vị trí hiện tại" />
+
         <Button
             android:id="@+id/btnCloseSession"
             android:layout_width="match_parent"
