@@ -162,6 +162,8 @@ dependencies {
     // ML Kit Barcode Scanning
         implementation(libs.mlkit.barcode)
 
+    // Google Play Services Location
+    implementation(libs.google.play.services.location)
 
     // =========================
     // Supabase
