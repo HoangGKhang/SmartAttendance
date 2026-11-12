@@ -24,6 +24,7 @@
         android:textColor="#64748B"
         android:textSize="14sp" />
 
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -75,5 +76,21 @@
         android:layout_marginTop="16dp"
         android:text="Quay lại" />
 
+    <TextView
+        android:id="@+id/tvStudentGpsStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Chưa xác minh vị trí"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btnVerifyStudentGps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Xác minh vị trí GPS"
+        android:visibility="gone" />
 
 </LinearLayout>
