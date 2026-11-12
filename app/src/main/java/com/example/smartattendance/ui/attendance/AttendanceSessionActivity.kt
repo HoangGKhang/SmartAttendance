@@ -42,6 +42,8 @@ import com.google.android.gms.tasks.CancellationTokenSource
 
 import java.util.Locale
 
+import android.content.Intent
+import android.provider.Settings
 
 class AttendanceSessionActivity : ComponentActivity() {
 
@@ -63,6 +65,9 @@ class AttendanceSessionActivity : ComponentActivity() {
 
     private var lastAutoRefreshSessionId: String? = null
 
+    private var isOpeningSession = false
+    // GPS đang lấy bị gián đoạn khi Activity dừng.
+    private var resumeLecturerGpsAfterInterruption = false
 
     private lateinit var layoutQrContainer: View
     private lateinit var ivAttendanceQr: ImageView
@@ -71,24 +76,28 @@ class AttendanceSessionActivity : ComponentActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     private lateinit var tvGpsInfo: TextView
-    private lateinit var btnGetLocation: Button
-
-    private var selectedGpsLocation: Location? = null
 
     private var locationCancellation: CancellationTokenSource? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isOpeningSession =
+            savedInstanceState?.getBoolean(
+                "is_opening_session",
+                false
+            ) ?: false
+
+        resumeLecturerGpsAfterInterruption =
+            savedInstanceState?.getBoolean(
+                "resume_lecturer_gps",
+                false
+            ) ?: false
+
         fusedLocationClient =
             LocationServices.getFusedLocationProviderClient(this)
         setContentView(R.layout.activity_attendance_session)
 
         tvGpsInfo = findViewById(R.id.tvGpsInfo)
-        btnGetLocation = findViewById(R.id.btnGetLocation)
-
-        btnGetLocation.setOnClickListener {
-            checkPermissionAndGetLocation()
-        }
 
 
         // 1. Ánh xạ giao diện XML.
@@ -131,12 +140,14 @@ class AttendanceSessionActivity : ComponentActivity() {
 
         // 3. Nút mở Session.
 
+
         btnStartSession.setOnClickListener {
 
             val state = viewModel.uiState.value
 
-            // 1. Giữ nguyên kiểm tra trạng thái Session.
+            // 1. Không cho mở phiên nhiều lần.
             if (
+                isOpeningSession ||
                 state.isLoading ||
                 !state.isInitialized ||
                 state.session != null ||
@@ -145,83 +156,16 @@ class AttendanceSessionActivity : ComponentActivity() {
                 return@setOnClickListener
             }
 
-            // 2. Kiểm tra quyền vị trí vẫn còn hiệu lực.
-            val fineGranted = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
+            // 2. Đánh dấu bắt đầu quá trình mở phiên.
+            isOpeningSession = true
+            btnStartSession.isEnabled = false
 
-            if (!fineGranted) {
-                selectedGpsLocation = null
-                tvGpsInfo.text =
-                    "Cần cấp quyền vị trí chính xác trước khi mở phiên."
-                return@setOnClickListener
-            }
+            tvGpsInfo.text = "Đang chuẩn bị lấy vị trí GPS..."
 
-            // 3. Phải lấy được GPS trước.
-            val location = selectedGpsLocation
-
-            if (location == null) {
-                tvGpsInfo.text =
-                    "Vui lòng nhấn Lấy vị trí hiện tại trước."
-                return@setOnClickListener
-            }
-
-            // 4. Kiểm tra độ chính xác.
-            if (
-                !location.hasAccuracy() ||
-                !location.accuracy.isFinite() ||
-                location.accuracy < 0f ||
-                location.accuracy > 30f
-            ) {
-                selectedGpsLocation = null
-
-                tvGpsInfo.text =
-                    "GPS chưa đủ chính xác (yêu cầu ≤ 30 m). " +
-                            "Vui lòng lấy lại vị trí."
-
-                return@setOnClickListener
-            }
-
-            // 5. Kiểm tra tọa độ có hợp lệ.
-            if (
-                !location.latitude.isFinite() ||
-                !location.longitude.isFinite() ||
-                location.latitude !in -90.0..90.0 ||
-                location.longitude !in -180.0..180.0
-            ) {
-                selectedGpsLocation = null
-                tvGpsInfo.text = "Tọa độ GPS không hợp lệ."
-                return@setOnClickListener
-            }
-
-            // 6. Kiểm tra vị trí có quá cũ không.
-            val ageMs =
-                (SystemClock.elapsedRealtimeNanos() -
-                        location.elapsedRealtimeNanos) / 1_000_000L
-
-            if (ageMs < 0L || ageMs > 20_000L) {
-                selectedGpsLocation = null
-
-                tvGpsInfo.text =
-                    "Vị trí GPS đã cũ. Vui lòng lấy lại vị trí."
-
-                return@setOnClickListener
-            }
-
-            // 7. Bán kính mặc định cho bản demo.
-            val radiusMeters = 50
-
-            // 8. Gửi dữ liệu đã kiểm tra vào ViewModel.
-            viewModel.createSession(
-                meetingId = id,
-                durationMinutes = 3,
-                latitude = location.latitude,
-                longitude = location.longitude,
-                radiusMeters = radiusMeters,
-                accuracyMeters = location.accuracy.toDouble()
-            )
+            // 3. Tự xin quyền hoặc lấy GPS.
+            checkPermissionAndGetLocation()
         }
+
 
 
         // 4. Nút đóng Session.
@@ -337,6 +281,32 @@ class AttendanceSessionActivity : ComponentActivity() {
 
     }
 
+
+    override fun onSaveInstanceState(outState: Bundle) {
+
+        outState.putBoolean(
+            "is_opening_session",
+            isOpeningSession
+        )
+
+        // Bao phủ cả trường hợp onSaveInstanceState
+        // chạy trước hoặc sau onStop.
+        val shouldResumeGps =
+            resumeLecturerGpsAfterInterruption ||
+                    (
+                            isOpeningSession &&
+                                    locationCancellation != null
+                            )
+
+        outState.putBoolean(
+            "resume_lecturer_gps",
+            shouldResumeGps
+        )
+
+        super.onSaveInstanceState(outState)
+    }
+
+
     private fun renderUi(state: AttendanceSessionUiState) {
 
         progressSession.visibility =
@@ -382,7 +352,8 @@ class AttendanceSessionActivity : ComponentActivity() {
 
             // Sau lỗi tạo phiên, phải làm mới trước.
             btnStartSession.isEnabled =
-                state.errorMessage == null
+                !isOpeningSession &&
+                        state.errorMessage == null
 
             return
         }
@@ -556,20 +527,19 @@ class AttendanceSessionActivity : ComponentActivity() {
 
                         if (
                             latestSession?.id != session.id ||
-                            latestSession.status !=
-                            AttendanceSessionStatus.OPEN ||
-                            latestSession.expiresAt
-                                ?.isAfter(Instant.now()) != true ||
-                            expiresAt == null ||
-                            !expiresAt.isAfter(Instant.now())
+                            latestSession.status != AttendanceSessionStatus.OPEN ||
+                            latestSession.expiresAt?.isAfter(Instant.now()) != true
                         ) {
-
                             ivAttendanceQr.setImageDrawable(null)
                             ivAttendanceQr.visibility = View.GONE
+                            return@collectLatest
+                        }
 
-                            tvQrStatus.text =
-                                "QR đã hết hạn"
-
+                        if (expiresAt == null || !expiresAt.isAfter(Instant.now())) {
+                            ivAttendanceQr.setImageDrawable(null)
+                            ivAttendanceQr.visibility = View.GONE
+                            tvQrStatus.text = "Đang cập nhật mã QR..."
+                            viewModel.requestQr()
                             return@collectLatest
                         }
 
@@ -620,20 +590,54 @@ class AttendanceSessionActivity : ComponentActivity() {
         }
     }
 
+    private fun failOpeningSession(message: String) {
+
+        isOpeningSession = false
+
+        tvGpsInfo.text = message
+
+        val state = viewModel.uiState.value
+
+        btnStartSession.isEnabled =
+            !state.isLoading &&
+                    state.isInitialized &&
+                    state.session == null &&
+                    state.errorMessage == null
+    }
+
+    private val lecturerLocationSettingsLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (!isOpeningSession) {
+                return@registerForActivityResult
+            }
+
+            if (isAttendanceLocationEnabled()) {
+                checkPermissionAndGetLocation()
+            } else {
+                failOpeningSession("Vị trí đang tắt. Hãy bật vị trí rồi thử lại.")
+            }
+        }
+
     private val locationPermissionLauncher =
         registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
 
-            val fineGranted =
-                permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+            if (isOpeningSession) {
 
-            if (fineGranted) {
-                fetchLecturerLocation()
-            } else {
-                selectedGpsLocation = null
-                tvGpsInfo.text =
-                    "Cần cấp quyền vị trí chính xác để lấy GPS."
+                val fineGranted =
+                    permissions[
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ] == true
+
+                if (fineGranted) {
+                    fetchLecturerLocation()
+                } else {
+                    failOpeningSession(
+                        "Bạn cần cho phép vị trí chính xác " +
+                                "để mở phiên điểm danh."
+                    )
+                }
             }
         }
 
@@ -663,10 +667,13 @@ class AttendanceSessionActivity : ComponentActivity() {
     }
 
 
+
     @SuppressLint("MissingPermission")
     private fun fetchLecturerLocation() {
 
-        // 1. Kiểm tra quyền một lần nữa.
+        if (!isOpeningSession) return
+
+        // 1. Kiểm tra quyền vị trí.
         val fineGranted =
             ContextCompat.checkSelfPermission(
                 this,
@@ -674,99 +681,261 @@ class AttendanceSessionActivity : ComponentActivity() {
             ) == PackageManager.PERMISSION_GRANTED
 
         if (!fineGranted) {
-            selectedGpsLocation = null
-            tvGpsInfo.text = "Chưa có quyền vị trí chính xác."
+            failOpeningSession("Chưa có quyền vị trí chính xác.")
             return
         }
 
-        // 2. Khóa nút trong lúc lấy vị trí.
-        btnGetLocation.isEnabled = false
-        tvGpsInfo.text = "Đang lấy vị trí GPS..."
+        if (!isAttendanceLocationEnabled()) {
+            // Chỉ giữ yêu cầu mở phiên khi giảng viên chọn đi tới Cài đặt.
+            isOpeningSession = false
+            btnStartSession.isEnabled = true
+            tvGpsInfo.text = "Vị trí đang tắt."
 
-        selectedGpsLocation = null
+            showEnableAttendanceLocationDialog(
+                message = "Bật vị trí để lấy tọa độ cho phiên điểm danh.",
+                onEnable = {
+                    isOpeningSession = true
+                    btnStartSession.isEnabled = false
+                    lecturerLocationSettingsLauncher.launch(
+                        Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    )
+                },
+                onLater = {
+                    failOpeningSession("Chưa bật vị trí. Bạn có thể mở phiên lại.")
+                }
+            )
+            return
+        }
 
-        // 3. Hủy yêu cầu trước nếu còn.
+        tvGpsInfo.text = "Đang tự động lấy vị trí GPS..."
+
+        // 2. Hủy request GPS cũ nếu có.
         locationCancellation?.cancel()
 
-        val cancellationSource = CancellationTokenSource()
-        locationCancellation = cancellationSource
+        val source = CancellationTokenSource()
+        locationCancellation = source
 
-        // 4. Cấu hình lấy vị trí.
+        // 3. Yêu cầu vị trí mới, độ chính xác cao.
         val request = CurrentLocationRequest.Builder()
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
             .setMaxUpdateAgeMillis(0L)
             .setDurationMillis(20_000L)
             .build()
 
-        // 5. Gọi Google Play services Location.
         try {
             fusedLocationClient.getCurrentLocation(
                 request,
-                cancellationSource.token
+                source.token
             )
                 .addOnSuccessListener(this) { location ->
 
-                    btnGetLocation.isEnabled = true
-
-                    if (location == null) {
-                        tvGpsInfo.text =
-                            "Không lấy được vị trí. Hãy bật vị trí và thử lại."
+                    // Bỏ qua callback từ request cũ hoặc đã hủy.
+                    if (
+                        locationCancellation !== source ||
+                        !isOpeningSession
+                    ) {
                         return@addOnSuccessListener
                     }
 
-                    // 6. Kiểm tra độ mới của dữ liệu.
+                    locationCancellation = null
+
+                    if (location == null) {
+                        failOpeningSession(
+                            "Không lấy được GPS. Hãy bật vị trí và thử lại."
+                        )
+                        return@addOnSuccessListener
+                    }
+
+                    // 4. Kiểm tra vị trí còn mới.
                     val ageMs =
                         (SystemClock.elapsedRealtimeNanos() -
                                 location.elapsedRealtimeNanos) / 1_000_000L
 
                     if (ageMs < 0L || ageMs > 20_000L) {
-                        tvGpsInfo.text =
-                            "Dữ liệu vị trí đã cũ. Vui lòng thử lại."
+                        failOpeningSession(
+                            "Vị trí GPS đã cũ. Vui lòng thử lại."
+                        )
                         return@addOnSuccessListener
                     }
 
-                    if (!location.hasAccuracy()) {
-                        tvGpsInfo.text =
-                            "Không xác định được độ chính xác vị trí."
+                    // 5. Kiểm tra độ chính xác.
+                    if (
+                        !location.hasAccuracy() ||
+                        !location.accuracy.isFinite() ||
+                        location.accuracy < 0f ||
+                        location.accuracy > 100f
+                    ) {
+                        failOpeningSession(
+                            "GPS chưa đủ chính xác (yêu cầu ≤ 30 m)."
+                        )
                         return@addOnSuccessListener
                     }
 
-                    selectedGpsLocation = location
+                    // 6. Kiểm tra tọa độ.
+                    if (
+                        !location.latitude.isFinite() ||
+                        !location.longitude.isFinite() ||
+                        location.latitude !in -90.0..90.0 ||
+                        location.longitude !in -180.0..180.0
+                    ) {
+                        failOpeningSession(
+                            "Tọa độ GPS không hợp lệ."
+                        )
+                        return@addOnSuccessListener
+                    }
 
-                    // 7. Hiển thị thông tin.
-                    val accuracyWarning =
-                        if (location.accuracy > 30f) {
-                            "\nCảnh báo: Độ chính xác còn thấp."
-                        } else {
-                            ""
-                        }
+                    // 7. Kiểm tra Session vẫn có thể mở.
+                    val state = viewModel.uiState.value
+                    val id = meetingId
 
+                    if (
+                        id.isNullOrBlank() ||
+                        state.isLoading ||
+                        !state.isInitialized ||
+                        state.session != null ||
+                        state.errorMessage != null
+                    ) {
+                        failOpeningSession(
+                            "Không thể mở phiên ở trạng thái hiện tại."
+                        )
+                        return@addOnSuccessListener
+                    }
+
+                    // 8. Hiển thị thông tin GPS.
                     tvGpsInfo.text = String.format(
                         Locale.US,
-                        "Vĩ độ: %.6f\nKinh độ: %.6f\nĐộ chính xác: ±%.1f m%s",
+                        "GPS hợp lệ\n" +
+                                "Vĩ độ: %.6f\n" +
+                                "Kinh độ: %.6f\n" +
+                                "Độ chính xác: ±%.1f m\n" +
+                                "Đang mở phiên điểm danh...",
                         location.latitude,
                         location.longitude,
-                        location.accuracy,
-                        accuracyWarning
+                        location.accuracy
+                    )
+
+                    // 9. Hoàn tất bước lấy GPS.
+                    isOpeningSession = false
+
+                    // 10. Tự động mở Session.
+                    viewModel.createSession(
+                        meetingId = id,
+                        durationMinutes = 3,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        radiusMeters = 200,
+                        accuracyMeters = location.accuracy.toDouble()
                     )
                 }
                 .addOnFailureListener(this) {
 
-                    btnGetLocation.isEnabled = true
-                    selectedGpsLocation = null
+                    if (
+                        locationCancellation !== source ||
+                        !isOpeningSession
+                    ) {
+                        return@addOnFailureListener
+                    }
 
-                    tvGpsInfo.text =
-                        "Lấy vị trí thất bại. Vui lòng thử lại."
+                    locationCancellation = null
+
+                    failOpeningSession(
+                        "Lấy GPS thất bại. Vui lòng thử lại."
+                    )
                 }
 
         } catch (e: SecurityException) {
 
-            btnGetLocation.isEnabled = true
-            selectedGpsLocation = null
+            if (locationCancellation === source) {
+                locationCancellation = null
+                failOpeningSession(
+                    "Quyền truy cập vị trí không còn hợp lệ."
+                )
+            }
 
-            tvGpsInfo.text =
-                "Quyền truy cập vị trí không còn hợp lệ."
+        } catch (e: Exception) {
+
+            if (locationCancellation === source) {
+                locationCancellation = null
+                failOpeningSession(
+                    "Không thể sử dụng dịch vụ vị trí."
+                )
+            }
         }
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+
+        // Không có quá trình GPS nào bị gián đoạn.
+        if (!resumeLecturerGpsAfterInterruption) {
+            return
+        }
+
+        // Xóa cờ trước để không chạy lặp.
+        resumeLecturerGpsAfterInterruption = false
+
+        if (!isOpeningSession) {
+            return
+        }
+
+        // Kiểm tra lại trạng thái Backend.
+        val state = viewModel.uiState.value
+
+        if (
+            state.isLoading ||
+            !state.isInitialized ||
+            state.session != null ||
+            state.errorMessage != null
+        ) {
+            failOpeningSession(
+                "Trạng thái phiên đã thay đổi. Vui lòng kiểm tra lại."
+            )
+            return
+        }
+
+        // Chỉ tự tiếp tục khi đã được cấp quyền chính xác.
+        val fineGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        if (!fineGranted) {
+            failOpeningSession(
+                "Cần cấp quyền vị trí chính xác để mở phiên."
+            )
+            return
+        }
+
+        tvGpsInfo.text =
+            "Đang tiếp tục lấy vị trí GPS..."
+
+        fetchLecturerLocation()
+    }
+
+
+    override fun onStop() {
+
+        val state = viewModel.uiState.value
+
+        // Chỉ tự tiếp tục nếu đang lấy GPS thật sự.
+        if (
+            isOpeningSession &&
+            locationCancellation != null &&
+            !state.isLoading &&
+            state.isInitialized &&
+            state.session == null &&
+            state.errorMessage == null
+        ) {
+            resumeLecturerGpsAfterInterruption = true
+        }
+
+        // Không giữ request GPS của Activity đã dừng.
+        locationCancellation?.cancel()
+        locationCancellation = null
+
+        super.onStop()
     }
 
 
