@@ -86,11 +86,11 @@
         android:visibility="gone" />
 
     <Button
-        android:id="@+id/btnVerifyStudentGps"
+        android:id="@+id/btnRetryStudentGps"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="Xác minh vị trí GPS"
+        android:text="Thử lại vị trí"
         android:visibility="gone" />
 
 </LinearLayout>

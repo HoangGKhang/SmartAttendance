@@ -13,6 +13,19 @@ import io.ktor.http.headersOf
 
 import kotlinx.coroutines.CancellationException
 
+import io.github.jan.supabase.exceptions.RestException
+import io.ktor.client.plugins.ResponseException
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+
+class GpsVerificationException(
+    val httpStatus: Int,
+    val errorCode: String?
+) : Exception()
+
 class AttendanceGpsRepository {
 
     private val supabase = SupabaseProvider.client
@@ -76,11 +89,7 @@ class AttendanceGpsRepository {
 
             // 5. Xử lý HTTP status.
             if (response.status.value != 200) {
-                return Result.failure(
-                    IllegalStateException(
-                        "Xác minh GPS thất bại. HTTP ${response.status.value}"
-                    )
-                )
+                return Result.failure(decodeGpsError(response))
             }
 
             // 6. Chuyển JSON response thành Kotlin DTO.
@@ -91,13 +100,39 @@ class AttendanceGpsRepository {
             Result.success(responseDto.verified)
 
         } catch (e: CancellationException) {
-
-            // Giữ nguyên cơ chế hủy Coroutine.
             throw e
-
+        } catch (e: RestException) {
+            Result.failure(
+                GpsVerificationException(e.statusCode, parseGpsErrorCode(e.error))
+            )
+        } catch (e: ResponseException) {
+            Result.failure(decodeGpsError(e.response))
         } catch (e: Exception) {
-
             Result.failure(e)
         }
+    }
+
+    private suspend fun decodeGpsError(
+        response: HttpResponse
+    ): GpsVerificationException {
+        val errorCode = try {
+            parseGpsErrorCode(response.bodyAsText())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+
+        return GpsVerificationException(response.status.value, errorCode)
+    }
+
+    private fun parseGpsErrorCode(body: String): String? {
+        val json = try {
+            Json.parseToJsonElement(body) as? JsonObject
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+
+        return (json?.get("error") as? JsonPrimitive)?.content
     }
 }

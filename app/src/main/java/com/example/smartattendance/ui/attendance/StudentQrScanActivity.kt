@@ -49,6 +49,17 @@ import com.google.android.gms.tasks.CancellationTokenSource
 
 import java.util.Locale
 
+import android.content.Intent
+import android.provider.Settings
+
+import android.os.Looper
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+
+
 class StudentQrScanActivity : AppCompatActivity() {
 
     private lateinit var binding:
@@ -81,9 +92,11 @@ class StudentQrScanActivity : AppCompatActivity() {
 
     private var studentGpsLocation: Location? = null
 
-    private var locationCancellation:
-            CancellationTokenSource? = null
+    private var studentLocationCallback: LocationCallback? = null
+    private var studentLocationTimeout: Job? = null
 
+    // Đánh dấu cần tiếp tục lấy GPS khi quay lại màn hình.
+    private var resumeGpsAfterInterruption = false
 
     // Chỉ quét mã QR, không quét các loại barcode khác.
     private val barcodeScanner = BarcodeScanning.getClient(
@@ -138,6 +151,18 @@ class StudentQrScanActivity : AppCompatActivity() {
         selectedMeetingId =
             intent.getStringExtra(EXTRA_MEETING_ID)
 
+        pendingQrSessionId =
+            savedInstanceState?.getString("pending_qr_session_id")
+
+        verifiedQrSessionId =
+            savedInstanceState?.getString("verified_qr_session_id")
+
+        resumeGpsAfterInterruption =
+            savedInstanceState?.getBoolean(
+                "resume_gps_after_interruption",
+                false
+            ) ?: false
+
         if (selectedMeetingId.isNullOrBlank()) {
             finish()
             return
@@ -168,7 +193,9 @@ class StudentQrScanActivity : AppCompatActivity() {
         binding.btnRetryScan.setOnClickListener {
 
             // 1. Kiểm tra có được phép retry không.
-            val canRetry = scanViewModel.resetForRetry()
+            val canRetry = scanViewModel.resetForRetry(
+                allowAfterSuccess = gpsRequiresNewQr(gpsViewModel.uiState.value)
+            )
 
             if (!canRetry) {
                 return@setOnClickListener
@@ -191,54 +218,16 @@ class StudentQrScanActivity : AppCompatActivity() {
             }
         }
 
-
-        binding.btnVerifyStudentGps.setOnClickListener {
-
-            // 1. QR phải PASS trước.
+        binding.btnRetryStudentGps.setOnClickListener {
             if (
-                scanViewModel.uiState.value.status !=
-                StudentQrScanStatus.SUCCESS
+                studentLocationCallback != null ||
+                gpsViewModel.uiState.value.status == StudentGpsStatus.VERIFYING
             ) {
                 return@setOnClickListener
             }
 
-            if (verifiedQrSessionId.isNullOrBlank()) {
-                binding.tvStudentGpsStatus.text =
-                    "Không xác định được Session. Vui lòng quét lại QR."
-                return@setOnClickListener
-            }
-
-            if (
-                gpsViewModel.uiState.value.status ==
-                StudentGpsStatus.VERIFYING
-            ) {
-                return@setOnClickListener
-            }
-
-            // 2. Kiểm tra quyền vị trí chính xác.
-            val fineGranted =
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-
-            if (fineGranted) {
-
-                // Đã có quyền: lấy GPS.
-                fetchStudentLocation()
-
-            } else {
-
-                // Chưa có quyền: hỏi người dùng.
-                studentLocationPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
+            startGpsVerificationAfterQr()
         }
-
 
         observeScanState()
         observeGpsState()
@@ -275,6 +264,19 @@ class StudentQrScanActivity : AppCompatActivity() {
         }
     }
 
+    private val studentLocationSettingsLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (scanViewModel.uiState.value.status != StudentQrScanStatus.SUCCESS) {
+                return@registerForActivityResult
+            }
+
+            if (isAttendanceLocationEnabled()) {
+                startGpsVerificationAfterQr()
+            } else {
+                binding.tvStudentGpsStatus.text =
+                    "Vị trí đang tắt. Bạn có thể bấm Thử lại vị trí."
+            }
+        }
 
     private val studentLocationPermissionLauncher =
         registerForActivityResult(
@@ -511,24 +513,21 @@ class StudentQrScanActivity : AppCompatActivity() {
 
                 scanViewModel.uiState.collect { state ->
 
-
-
                     if (state.status != StudentQrScanStatus.SUCCESS) {
-                        locationCancellation?.cancel()
-                        locationCancellation = null
+                        stopStudentLocationUpdates()
                         studentGpsLocation = null
-                        binding.btnVerifyStudentGps.isEnabled = true
                         binding.tvStudentGpsStatus.text =
                             "Chưa xác minh vị trí"
                     }
 
                     when (state.status) {
 
-                        StudentQrScanStatus.SUCCESS -> {
 
-                            if (pendingQrSessionId != null) {
-                                verifiedQrSessionId = pendingQrSessionId
-                                pendingQrSessionId = null
+                        StudentQrScanStatus.SUCCESS -> {
+                            val sessionId = state.result?.sessionId
+                            if (!sessionId.isNullOrBlank() && verifiedQrSessionId != sessionId) {
+                                verifiedQrSessionId = sessionId
+                                startGpsVerificationAfterQr()
                             }
                         }
 
@@ -538,8 +537,7 @@ class StudentQrScanActivity : AppCompatActivity() {
                             pendingQrSessionId = null
                             verifiedQrSessionId = null
 
-                            locationCancellation?.cancel()
-                            locationCancellation = null
+                            stopStudentLocationUpdates()
                             studentGpsLocation = null
 
                             gpsViewModel.resetGpsVerification()
@@ -557,13 +555,12 @@ class StudentQrScanActivity : AppCompatActivity() {
                         state.status == StudentQrScanStatus.SUCCESS &&
                                 !verifiedQrSessionId.isNullOrBlank()
 
-                    binding.btnVerifyStudentGps.visibility =
-                        if (canVerifyGps) View.VISIBLE else View.GONE
 
                     binding.tvStudentGpsStatus.visibility =
                         if (canVerifyGps) View.VISIBLE else View.GONE
 
-
+                    binding.btnRetryStudentGps.visibility =
+                        if (canVerifyGps) View.VISIBLE else View.GONE
                     when (state.status) {
 
                         StudentQrScanStatus.SCANNING -> {
@@ -678,15 +675,11 @@ class StudentQrScanActivity : AppCompatActivity() {
                         StudentGpsStatus.IDLE -> Unit
 
                         StudentGpsStatus.VERIFYING -> {
-                            binding.btnVerifyStudentGps.isEnabled = false
-
                             binding.tvStudentGpsStatus.text =
                                 "Đang xác minh GPS với Backend..."
                         }
 
                         StudentGpsStatus.PASS -> {
-                            binding.btnVerifyStudentGps.isEnabled = true
-
                             binding.tvStudentGpsStatus.text =
                                 "GPS PASS\n" +
                                         "Bạn nằm trong vùng điểm danh.\n" +
@@ -694,7 +687,6 @@ class StudentQrScanActivity : AppCompatActivity() {
                         }
 
                         StudentGpsStatus.FAIL -> {
-                            binding.btnVerifyStudentGps.isEnabled = true
 
                             binding.tvStudentGpsStatus.text =
                                 "GPS FAIL\n" +
@@ -702,12 +694,17 @@ class StudentQrScanActivity : AppCompatActivity() {
                         }
 
                         StudentGpsStatus.ERROR -> {
-                            binding.btnVerifyStudentGps.isEnabled = true
+                            val needsNewQr = gpsRequiresNewQr(state)
+                            binding.btnRetryScan.visibility =
+                                if (needsNewQr) View.VISIBLE else View.GONE
+                            binding.btnRetryStudentGps.visibility =
+                                if (needsNewQr) View.GONE else View.VISIBLE
 
                             binding.tvStudentGpsStatus.text =
                                 state.errorMessage
                                     ?: "Không thể xác minh GPS."
                         }
+
                     }
                 }
             }
@@ -726,8 +723,9 @@ class StudentQrScanActivity : AppCompatActivity() {
         }
 
         // 2. Lấy Meeting và Session đã xác minh.
-        val meetingId = selectedMeetingId
-        val sessionId = verifiedQrSessionId
+        val result = scanViewModel.uiState.value.result
+        val meetingId = result?.meetingId
+        val sessionId = result?.sessionId
 
         if (
             meetingId.isNullOrBlank() ||
@@ -783,6 +781,67 @@ class StudentQrScanActivity : AppCompatActivity() {
     }
 
 
+    private fun gpsRequiresNewQr(state: StudentGpsUiState): Boolean =
+        state.status == StudentGpsStatus.ERROR &&
+                (state.errorCode == "SESSION_NOT_FOUND" ||
+                        state.errorCode == "SESSION_UNAVAILABLE")
+
+    private fun startGpsVerificationAfterQr() {
+
+        // 1. Chỉ tiếp tục khi QR đã được Backend xác minh.
+        if (
+            scanViewModel.uiState.value.status !=
+            StudentQrScanStatus.SUCCESS
+        ) {
+            return
+        }
+
+        // 2. Phải có Session ID tương ứng với QR hợp lệ.
+        if (verifiedQrSessionId.isNullOrBlank()) {
+            binding.tvStudentGpsStatus.text =
+                "Không xác định được Session. Vui lòng quét lại QR."
+            return
+        }
+
+        // 3. Kiểm tra quyền vị trí chính xác.
+        val fineGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        if (fineGranted) {
+
+            // Đã có quyền: lấy GPS ngay.
+            fetchStudentLocation()
+
+        } else {
+
+            // Chưa có quyền: để Android hỏi Allow / Deny.
+            binding.tvStudentGpsStatus.text =
+                "Đang yêu cầu quyền vị trí chính xác..."
+
+            studentLocationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    private fun stopStudentLocationUpdates() {
+        val callback = studentLocationCallback
+        studentLocationCallback = null
+
+        studentLocationTimeout?.cancel()
+        studentLocationTimeout = null
+
+        if (callback != null) {
+            fusedLocationClient.removeLocationUpdates(callback)
+        }
+    }
+
     @SuppressLint("MissingPermission")
     private fun fetchStudentLocation() {
 
@@ -807,136 +866,98 @@ class StudentQrScanActivity : AppCompatActivity() {
             return
         }
 
-        // 3. Khóa nút khi đang lấy GPS.
-        binding.btnVerifyStudentGps.isEnabled = false
-        binding.tvStudentGpsStatus.text =
-            "Đang lấy vị trí của bạn..."
+        if (!isAttendanceLocationEnabled()) {
+            showEnableAttendanceLocationDialog(
+                message = "Bật vị trí để kiểm tra bạn có ở trong khu vực điểm danh.",
+                onEnable = {
+                    studentLocationSettingsLauncher.launch(
+                        Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    )
+                },
+                onLater = {
+                    binding.tvStudentGpsStatus.text = "Chưa xác minh vị trí."
+                }
+            )
+            return
+        }
 
-        studentGpsLocation = null
+        if (studentLocationCallback != null) return
 
-        // 4. Hủy request trước nếu tồn tại.
-        locationCancellation?.cancel()
+        binding.tvStudentGpsStatus.text = "Đang lấy vị trí của bạn..."
 
-        val source = CancellationTokenSource()
-        locationCancellation = source
-
-        // 5. Yêu cầu vị trí mới.
-        val request = CurrentLocationRequest.Builder()
-            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-            .setMaxUpdateAgeMillis(0L)
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            1_000L
+        )
+            .setMaxUpdateAgeMillis(10_000L)
             .setDurationMillis(20_000L)
             .build()
 
-        try {
-            fusedLocationClient.getCurrentLocation(
-                request,
-                source.token
-            )
-                .addOnSuccessListener(this) { location ->
+        var bestAccuracy: Float? = null
 
-                    // Bỏ qua kết quả từ request đã hủy.
-                    if (locationCancellation !== source) {
-                        return@addOnSuccessListener
-                    }
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                if (studentLocationCallback !== this) return
 
-                    locationCancellation = null
-                    binding.btnVerifyStudentGps.isEnabled = true
+                for (location in result.locations) {
+                    val ageMs = (SystemClock.elapsedRealtimeNanos() -
+                            location.elapsedRealtimeNanos) / 1_000_000L
 
-                    // QR phải vẫn ở trạng thái SUCCESS.
                     if (
-                        scanViewModel.uiState.value.status !=
-                        StudentQrScanStatus.SUCCESS
-                    ) {
-                        studentGpsLocation = null
-                        return@addOnSuccessListener
-                    }
-
-                    // 6. Không nhận được GPS.
-                    if (location == null) {
-                        binding.tvStudentGpsStatus.text =
-                            "Không lấy được vị trí. Vui lòng thử lại."
-                        return@addOnSuccessListener
-                    }
-
-                    // 7. Kiểm tra tuổi dữ liệu vị trí.
-                    val ageMs =
-                        (SystemClock.elapsedRealtimeNanos() -
-                                location.elapsedRealtimeNanos) / 1_000_000L
-
-                    if (ageMs < 0L || ageMs > 20_000L) {
-                        binding.tvStudentGpsStatus.text =
-                            "Vị trí GPS đã cũ. Hãy lấy lại."
-                        return@addOnSuccessListener
-                    }
-
-                    // 8. Kiểm tra độ chính xác.
-                    if (
+                        ageMs !in 0L..20_000L ||
                         !location.hasAccuracy() ||
                         !location.accuracy.isFinite() ||
                         location.accuracy < 0f ||
-                        location.accuracy > 30f
-                    ) {
-                        binding.tvStudentGpsStatus.text =
-                            "GPS chưa đủ chính xác (yêu cầu ≤ 30 m)."
-                        return@addOnSuccessListener
-                    }
-
-                    // 9. Kiểm tra tọa độ.
-                    if (
-                        !location.latitude.isFinite() ||
-                        !location.longitude.isFinite() ||
                         location.latitude !in -90.0..90.0 ||
                         location.longitude !in -180.0..180.0
                     ) {
-                        binding.tvStudentGpsStatus.text =
-                            "Tọa độ GPS không hợp lệ."
-                        return@addOnSuccessListener
+                        continue
                     }
 
-                    // 10. Lưu vị trí tạm thời.
-                    studentGpsLocation = location
+                    val accuracy = location.accuracy
+                    bestAccuracy = minOf(bestAccuracy ?: accuracy, accuracy)
 
-                    // 11. Hiển thị thông tin.
-                    binding.tvStudentGpsStatus.text =
-                        String.format(
-                            Locale.US,
-                            "Đã lấy GPS (chưa xác minh).\n" +
-                                    "Latitude: %.6f\n" +
-                                    "Longitude: %.6f\n" +
-                                    "Accuracy: ±%.1f m",
-                            location.latitude,
-                            location.longitude,
-                            location.accuracy
-                        )
-
-                    // GPS hợp lệ, gửi lên Backend.
-                    submitStudentGps(location)
-                }
-                .addOnFailureListener(this) {
-
-                    if (locationCancellation !== source) {
-                        return@addOnFailureListener
+                    if (accuracy <= 30f) {
+                        stopStudentLocationUpdates()
+                        submitStudentGps(location)
+                        return
                     }
-
-                    locationCancellation = null
-                    studentGpsLocation = null
-                    binding.btnVerifyStudentGps.isEnabled = true
-
-                    binding.tvStudentGpsStatus.text =
-                        "Lấy vị trí thất bại. Vui lòng thử lại."
                 }
-
-        } catch (e: SecurityException) {
-
-            if (locationCancellation === source) {
-                locationCancellation = null
             }
+        }
 
-            studentGpsLocation = null
-            binding.btnVerifyStudentGps.isEnabled = true
+        studentLocationCallback = callback
+        studentLocationTimeout = lifecycleScope.launch {
+            delay(20_000L)
+            if (studentLocationCallback !== callback) return@launch
 
-            binding.tvStudentGpsStatus.text =
-                "Không còn quyền truy cập vị trí."
+            stopStudentLocationUpdates()
+
+            binding.tvStudentGpsStatus.text = bestAccuracy?.let { accuracy ->
+                val meters = String.format(Locale.US, "%.1f", accuracy)
+                "GPS tốt nhất ±$meters m, yêu cầu ≤ 30 m. Hãy thử lại."
+            } ?: "Chưa lấy được vị trí sau 20 giây. Hãy thử lại."
+        }
+
+        try {
+            fusedLocationClient.requestLocationUpdates(
+                request,
+                callback,
+                Looper.getMainLooper()
+            ).addOnFailureListener { error ->
+                if (studentLocationCallback === callback) {
+                    stopStudentLocationUpdates()
+                    binding.tvStudentGpsStatus.text =
+                        if (error is SecurityException) {
+                            "Không còn quyền truy cập vị trí."
+                        } else {
+                            "Lấy vị trí thất bại. Hãy thử lại."
+                        }
+                }
+            }
+        } catch (e: SecurityException) {
+            stopStudentLocationUpdates()
+            binding.tvStudentGpsStatus.text = "Không còn quyền truy cập vị trí."
         }
     }
 
@@ -969,8 +990,7 @@ class StudentQrScanActivity : AppCompatActivity() {
         // Không tái sử dụng kết quả của lượt trước.
         verifiedQrSessionId = null
 
-        locationCancellation?.cancel()
-        locationCancellation = null
+        stopStudentLocationUpdates()
         studentGpsLocation = null
 
         gpsViewModel.resetGpsVerification()
@@ -984,13 +1004,109 @@ class StudentQrScanActivity : AppCompatActivity() {
     }
 
 
-    override fun onStop() {
-        locationCancellation?.cancel()
-        locationCancellation = null
+    override fun onSaveInstanceState(outState: Bundle) {
 
-        if (::binding.isInitialized) {
-            binding.btnVerifyStudentGps.isEnabled = true
+        outState.putString(
+            "pending_qr_session_id",
+            pendingQrSessionId
+        )
+
+        outState.putString(
+            "verified_qr_session_id",
+            verifiedQrSessionId
+        )
+
+        val gpsWasInterruptedOrRunning =
+            resumeGpsAfterInterruption ||
+                    studentLocationCallback != null
+
+        val shouldResumeGps =
+            scanViewModel.uiState.value.status ==
+                    StudentQrScanStatus.SUCCESS &&
+                    !verifiedQrSessionId.isNullOrBlank() &&
+                    gpsViewModel.uiState.value.status ==
+                    StudentGpsStatus.IDLE &&
+                    gpsWasInterruptedOrRunning
+
+        outState.putBoolean(
+            "resume_gps_after_interruption",
+            shouldResumeGps
+        )
+
+        super.onSaveInstanceState(outState)
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+
+        // Không có GPS nào bị gián đoạn.
+        if (!resumeGpsAfterInterruption) {
+            return
         }
+
+        // Xóa cờ trước khi tiếp tục, tránh lặp yêu cầu.
+        resumeGpsAfterInterruption = false
+
+        // QR vẫn phải ở trạng thái SUCCESS.
+        if (
+            scanViewModel.uiState.value.status !=
+            StudentQrScanStatus.SUCCESS ||
+            verifiedQrSessionId.isNullOrBlank()
+        ) {
+            return
+        }
+
+        // Nếu Backend đã nhận request GPS,
+        // không tạo thêm request vị trí.
+        if (
+            gpsViewModel.uiState.value.status !=
+            StudentGpsStatus.IDLE
+        ) {
+            return
+        }
+
+        // Chỉ tự tiếp tục khi đã có quyền vị trí chính xác.
+        val fineGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        if (fineGranted) {
+
+            binding.tvStudentGpsStatus.text =
+                "Đang tiếp tục xác minh vị trí GPS..."
+
+            fetchStudentLocation()
+
+        } else {
+
+            // Không tự hiện lại hộp thoại quyền liên tục.
+            binding.tvStudentGpsStatus.text =
+                "Cần cấp quyền vị trí chính xác để tiếp tục điểm danh."
+        }
+    }
+
+
+
+    override fun onStop() {
+
+        // Chỉ đánh dấu tiếp tục nếu GPS thực sự đang được lấy,
+        // QR vẫn hợp lệ và chưa có kết quả Backend.
+        if (
+            studentLocationCallback != null &&
+            scanViewModel.uiState.value.status ==
+            StudentQrScanStatus.SUCCESS &&
+            !verifiedQrSessionId.isNullOrBlank() &&
+            gpsViewModel.uiState.value.status ==
+            StudentGpsStatus.IDLE
+        ) {
+            resumeGpsAfterInterruption = true
+        }
+
+        // Hủy yêu cầu GPS của Activity đang dừng.
+        stopStudentLocationUpdates()
 
         super.onStop()
     }

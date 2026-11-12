@@ -108,9 +108,13 @@ class StudentQrScanViewModel : ViewModel() {
     /**
      * Cho phép quét lại sau lỗi có thể khắc phục.
      */
-    fun resetForRetry(): Boolean {
-
+    fun resetForRetry(allowAfterSuccess: Boolean = false): Boolean {
         val state = _uiState.value
+
+        val canReset = state.status == StudentQrScanStatus.ERROR ||
+                (allowAfterSuccess && state.status == StudentQrScanStatus.SUCCESS)
+
+        if (!canReset) return false
 
         if (state.status != StudentQrScanStatus.ERROR) {
             return false

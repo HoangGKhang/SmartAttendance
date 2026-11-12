@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+import com.example.smartattendance.data.repository.GpsVerificationException
+
 class StudentGpsViewModel(
     private val repository: AttendanceGpsRepository =
         AttendanceGpsRepository()
@@ -94,13 +96,16 @@ class StudentGpsViewModel(
                         )
                     },
 
-                    onFailure = {
+                    onFailure = { error ->
+
                         _uiState.value = StudentGpsUiState(
                             status = StudentGpsStatus.ERROR,
                             sessionId = sessionId,
-                            errorMessage =
-                                "Không thể xác minh vị trí GPS"
+                            errorMessage = gpsErrorMessage(error),
+                            errorCode = (error as? GpsVerificationException)?.errorCode
+
                         )
+
                     }
                 )
 
@@ -119,6 +124,34 @@ class StudentGpsViewModel(
                         "Đã xảy ra lỗi khi xác minh GPS"
                 )
             }
+        }
+    }
+
+    private fun gpsErrorMessage(error: Throwable): String {
+        val gpsError = error as? GpsVerificationException
+            ?: return "Không thể gửi hoặc đọc kết quả xác minh GPS. Vui lòng thử lại."
+
+        return when (gpsError.errorCode) {
+            "SESSION_UNAVAILABLE" ->
+                "Phiên hoặc buổi học không còn khả dụng. Hãy quét mã của phiên đang mở."
+
+            "SESSION_NOT_FOUND" ->
+                "Không tìm thấy phiên điểm danh. Hãy quét lại mã QR."
+
+            "GPS_NOT_CONFIGURED" ->
+                "Phiên chưa có cấu hình GPS hợp lệ. Hãy báo giảng viên."
+
+            "UNAUTHORIZED" ->
+                "Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại."
+
+            "FORBIDDEN" ->
+                "Tài khoản của bạn không có quyền điểm danh trong lớp này."
+
+            "INVALID_GPS_DATA" ->
+                "Dữ liệu vị trí không hợp lệ. Hãy thử lại vị trí."
+
+            else ->
+                "Xác minh vị trí thất bại (HTTP ${gpsError.httpStatus})."
         }
     }
 
