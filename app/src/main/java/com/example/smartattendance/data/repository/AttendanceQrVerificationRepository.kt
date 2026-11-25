@@ -29,6 +29,7 @@ enum class VerifyQrFailureReason {
     SESSION_UNAVAILABLE,
     NOT_ENROLLED,
     WRONG_MEETING,
+    ATTENDANCE_RECORD_NOT_FOUND,
     SERVER_ERROR,
     INVALID_RESPONSE
 }
@@ -61,6 +62,9 @@ class VerifyAttendanceQrException(
 
         VerifyQrFailureReason.INVALID_RESPONSE ->
             "Dữ liệu xác minh từ máy chủ không hợp lệ"
+
+        VerifyQrFailureReason.ATTENDANCE_RECORD_NOT_FOUND ->
+            "Không tìm thấy bản ghi điểm danh. Vui lòng báo giảng viên."
     }
 )
 
@@ -112,7 +116,8 @@ class AttendanceQrVerificationRepository {
 
             // 3. Tạo JSON request.
             val request = VerifyAttendanceQrRequestDto(
-                qrToken = qrToken
+                qrToken = qrToken,
+                meetingId = expectedMeetingId
             )
 
             // 4. Gọi backend Verify.
@@ -236,6 +241,15 @@ class AttendanceQrVerificationRepository {
             "FORBIDDEN" -> VerifyQrFailureReason.NOT_ENROLLED
 
             "UNAUTHORIZED" -> VerifyQrFailureReason.LOGIN_REQUIRED
+
+            "WRONG_MEETING" ->
+                VerifyQrFailureReason.WRONG_MEETING
+
+            "ATTENDANCE_RECORD_NOT_FOUND" ->
+                VerifyQrFailureReason.ATTENDANCE_RECORD_NOT_FOUND
+
+            "INVALID_MEETING_ID" ->
+                VerifyQrFailureReason.WRONG_MEETING
 
             "INVALID_QR_REQUEST",
             "INVALID_QR_TOKEN",

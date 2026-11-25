@@ -56,8 +56,18 @@ export function validateVerifyQrRequest(
     );
   }
 
+  if (
+    typeof data.meetingId !== "string" ||
+    !uuidPattern.test(data.meetingId)
+  ) {
+    throw new ValidationError(
+      "INVALID_MEETING_ID",
+    );
+  }
+
   return {
     qrToken: data.qrToken,
+    meetingId: data.meetingId.toLowerCase(),
   };
 }
 

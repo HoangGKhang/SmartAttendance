@@ -10,7 +10,13 @@ enum class StudentGpsStatus {
 
 data class StudentGpsUiState(
     val status: StudentGpsStatus = StudentGpsStatus.IDLE,
+
     val sessionId: String? = null,
+
     val errorMessage: String? = null,
+
     val errorCode: String? = null,
+
+    // Attendance result returned by Backend.
+    val attendanceStatus: String? = null
 )

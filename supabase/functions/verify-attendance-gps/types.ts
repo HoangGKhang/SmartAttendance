@@ -8,4 +8,5 @@ export interface VerifyGpsInput {
 
 export interface VerifyGpsResult {
   verified: boolean;
+  attendanceStatus: "PRESENT" | "ABSENT" | null;
 }

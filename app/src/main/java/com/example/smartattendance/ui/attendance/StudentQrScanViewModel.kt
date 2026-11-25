@@ -108,24 +108,36 @@ class StudentQrScanViewModel : ViewModel() {
     /**
      * Cho phép quét lại sau lỗi có thể khắc phục.
      */
-    fun resetForRetry(allowAfterSuccess: Boolean = false): Boolean {
+    fun resetForRetry(
+        allowAfterSuccess: Boolean = false
+    ): Boolean {
+
         val state = _uiState.value
 
-        val canReset = state.status == StudentQrScanStatus.ERROR ||
-                (allowAfterSuccess && state.status == StudentQrScanStatus.SUCCESS)
+        // 1. Retry is allowed after an error or
+        // after QR success when explicitly requested.
+        val canReset =
+            state.status == StudentQrScanStatus.ERROR ||
+                    (
+                            allowAfterSuccess &&
+                                    state.status == StudentQrScanStatus.SUCCESS
+                            )
 
-        if (!canReset) return false
-
-        if (state.status != StudentQrScanStatus.ERROR) {
+        if (!canReset) {
             return false
         }
 
-        // Đăng nhập sai hoặc không thuộc Course:
-        // quét lại QR không khắc phục được.
-        if (state.failureReason == VerifyQrFailureReason.LOGIN_REQUIRED) {
+        // 2. Scanning again cannot resolve authentication
+        // or enrollment errors.
+        if (
+            state.failureReason == VerifyQrFailureReason.LOGIN_REQUIRED ||
+            state.failureReason == VerifyQrFailureReason.NOT_ENROLLED ||
+            state.failureReason == VerifyQrFailureReason.ATTENDANCE_RECORD_NOT_FOUND
+        ) {
             return false
         }
 
+        // 3. Reset to scanning state.
         _uiState.value = StudentQrScanUiState(
             status = StudentQrScanStatus.SCANNING
         )

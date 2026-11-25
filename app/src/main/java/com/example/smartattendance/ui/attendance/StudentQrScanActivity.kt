@@ -559,8 +559,15 @@ class StudentQrScanActivity : AppCompatActivity() {
                     binding.tvStudentGpsStatus.visibility =
                         if (canVerifyGps) View.VISIBLE else View.GONE
 
+                    val gpsState = gpsViewModel.uiState.value
+
+                    val showGpsRetry =
+                        canVerifyGps &&
+                                gpsState.status == StudentGpsStatus.IDLE
+
                     binding.btnRetryStudentGps.visibility =
-                        if (canVerifyGps) View.VISIBLE else View.GONE
+                        if (showGpsRetry) View.VISIBLE else View.GONE
+
                     when (state.status) {
 
                         StudentQrScanStatus.SCANNING -> {
@@ -583,11 +590,9 @@ class StudentQrScanActivity : AppCompatActivity() {
 
                         StudentQrScanStatus.SUCCESS -> {
 
-
                             binding.tvScanStatus.text =
                                 "QR hợp lệ!\n" +
-                                        "Đã xác minh với máy chủ.\n" +
-                                        "Chưa ghi nhận điểm danh PRESENT."
+                                        "Đã xác minh với máy chủ."
 
                             binding.btnRetryScan.visibility =
                                 View.GONE
@@ -623,6 +628,10 @@ class StudentQrScanActivity : AppCompatActivity() {
                                         "Phiên điểm danh đã đóng " +
                                                 "hoặc không khả dụng."
 
+                                    VerifyQrFailureReason.ATTENDANCE_RECORD_NOT_FOUND ->
+                                        "Không tìm thấy bản ghi điểm danh. " +
+                                                "Vui lòng báo giảng viên."
+
                                     else ->
                                         "Không thể xác minh QR. " +
                                                 "Vui lòng thử lại."
@@ -630,7 +639,10 @@ class StudentQrScanActivity : AppCompatActivity() {
 
                             // Lỗi đăng nhập và phân quyền
                             // không thể sửa bằng cách quét lại.
-                            val canRetry = reason != VerifyQrFailureReason.LOGIN_REQUIRED
+                            val canRetry =
+                                reason != VerifyQrFailureReason.LOGIN_REQUIRED &&
+                                        reason != VerifyQrFailureReason.NOT_ENROLLED &&
+                                        reason != VerifyQrFailureReason.ATTENDANCE_RECORD_NOT_FOUND
 
                             binding.btnRetryScan.visibility =
                                 if (canRetry) View.VISIBLE
@@ -652,12 +664,13 @@ class StudentQrScanActivity : AppCompatActivity() {
 
                 gpsViewModel.uiState.collect { state ->
 
-                    // Không xử lý khi chưa gửi GPS.
+                    // 1. Ignore idle state.
                     if (state.status == StudentGpsStatus.IDLE) {
                         return@collect
                     }
 
-                    // Kết quả phải thuộc đúng Session QR.
+                    // 2. GPS result must belong to the
+                    // currently verified QR Session.
                     val sameSession =
                         state.sessionId == verifiedQrSessionId &&
                                 !verifiedQrSessionId.isNullOrBlank()
@@ -670,41 +683,139 @@ class StudentQrScanActivity : AppCompatActivity() {
                         return@collect
                     }
 
+                    // 3. Render GPS and attendance result.
                     when (state.status) {
 
                         StudentGpsStatus.IDLE -> Unit
 
+
                         StudentGpsStatus.VERIFYING -> {
+
                             binding.tvStudentGpsStatus.text =
-                                "Đang xác minh GPS với Backend..."
+                                "Đang xác minh GPS với máy chủ..."
+
+                            binding.btnRetryStudentGps.visibility =
+                                View.GONE
+
+                            binding.btnRetryScan.visibility =
+                                View.GONE
                         }
 
+
                         StudentGpsStatus.PASS -> {
-                            binding.tvStudentGpsStatus.text =
-                                "GPS PASS\n" +
-                                        "Bạn nằm trong vùng điểm danh.\n" +
-                                        "Chưa ghi nhận PRESENT."
+
+                            binding.btnRetryStudentGps.visibility =
+                                View.GONE
+
+                            binding.btnRetryScan.visibility =
+                                View.GONE
+
+                            when (state.attendanceStatus) {
+
+                                "PRESENT" -> {
+
+                                    binding.tvStudentGpsStatus.text =
+                                        "GPS hợp lệ!\n" +
+                                                "Bạn nằm trong vùng điểm danh.\n\n" +
+                                                "Điểm danh thành công!"
+                                }
+
+                                "ABSENT" -> {
+
+                                    binding.tvStudentGpsStatus.text =
+                                        "GPS hợp lệ!\n" +
+                                                "Bạn nằm trong vùng điểm danh.\n\n" +
+                                                "Chưa hoàn tất các điều kiện điểm danh."
+                                }
+
+                                else -> {
+
+                                    binding.tvStudentGpsStatus.text =
+                                        "Không xác định được kết quả điểm danh."
+
+                                    binding.btnRetryStudentGps.visibility =
+                                        View.VISIBLE
+                                }
+                            }
                         }
+
 
                         StudentGpsStatus.FAIL -> {
 
                             binding.tvStudentGpsStatus.text =
-                                "GPS FAIL\n" +
+                                "GPS không hợp lệ.\n" +
                                         "Bạn nằm ngoài vùng điểm danh."
+
+                            binding.btnRetryStudentGps.visibility =
+                                View.VISIBLE
+
+                            binding.btnRetryScan.visibility =
+                                View.GONE
                         }
+
 
                         StudentGpsStatus.ERROR -> {
-                            val needsNewQr = gpsRequiresNewQr(state)
-                            binding.btnRetryScan.visibility =
-                                if (needsNewQr) View.VISIBLE else View.GONE
-                            binding.btnRetryStudentGps.visibility =
-                                if (needsNewQr) View.GONE else View.VISIBLE
 
-                            binding.tvStudentGpsStatus.text =
-                                state.errorMessage
-                                    ?: "Không thể xác minh GPS."
+                            when (state.errorCode) {
+
+                                // Attendance already completed.
+                                "ALREADY_CHECKED_IN" -> {
+
+                                    binding.tvStudentGpsStatus.text =
+                                        "Bạn đã điểm danh buổi học này trước đó."
+
+                                    binding.btnRetryStudentGps.visibility =
+                                        View.GONE
+
+                                    binding.btnRetryScan.visibility =
+                                        View.GONE
+                                }
+
+
+                                // Retrying GPS cannot resolve these errors.
+                                "UNAUTHORIZED",
+                                "FORBIDDEN",
+                                "GPS_NOT_CONFIGURED",
+                                "ATTENDANCE_RECORD_NOT_FOUND" -> {
+
+                                    binding.tvStudentGpsStatus.text =
+                                        state.errorMessage
+                                            ?: "Không thể xác minh vị trí."
+
+                                    binding.btnRetryStudentGps.visibility =
+                                        View.GONE
+
+                                    binding.btnRetryScan.visibility =
+                                        View.GONE
+                                }
+
+
+                                // Recoverable errors.
+                                else -> {
+
+                                    val needsNewQr =
+                                        gpsRequiresNewQr(state)
+
+                                    binding.btnRetryScan.visibility =
+                                        if (needsNewQr) {
+                                            View.VISIBLE
+                                        } else {
+                                            View.GONE
+                                        }
+
+                                    binding.btnRetryStudentGps.visibility =
+                                        if (needsNewQr) {
+                                            View.GONE
+                                        } else {
+                                            View.VISIBLE
+                                        }
+
+                                    binding.tvStudentGpsStatus.text =
+                                        state.errorMessage
+                                            ?: "Không thể xác minh GPS."
+                                }
+                            }
                         }
-
                     }
                 }
             }
@@ -781,12 +892,40 @@ class StudentQrScanActivity : AppCompatActivity() {
     }
 
 
-    private fun gpsRequiresNewQr(state: StudentGpsUiState): Boolean =
-        state.status == StudentGpsStatus.ERROR &&
-                (state.errorCode == "SESSION_NOT_FOUND" ||
-                        state.errorCode == "SESSION_UNAVAILABLE")
+    private fun gpsRequiresNewQr(
+        state: StudentGpsUiState
+    ): Boolean {
+
+        return state.status == StudentGpsStatus.ERROR &&
+                (
+                        state.errorCode == "SESSION_NOT_FOUND" ||
+                                state.errorCode == "SESSION_UNAVAILABLE" ||
+                                state.errorCode == "QR_VERIFICATION_REQUIRED"
+                        )
+    }
 
     private fun startGpsVerificationAfterQr() {
+        // Do not restart GPS after completed attendance.
+        val gpsState = gpsViewModel.uiState.value
+
+        if (
+            gpsState.sessionId == verifiedQrSessionId &&
+            (
+                    gpsState.attendanceStatus == "PRESENT" ||
+                            gpsState.errorCode == "ALREADY_CHECKED_IN"
+                    )
+        ) {
+            return
+        }
+
+        // Prevent duplicate GPS operations.
+        if (
+            studentLocationCallback != null ||
+            gpsState.status == StudentGpsStatus.VERIFYING
+        ) {
+            return
+        }
+
 
         // 1. Chỉ tiếp tục khi QR đã được Backend xác minh.
         if (

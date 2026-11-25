@@ -4,5 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class VerifyAttendanceGpsResponseDto(
-    val verified: Boolean
+    val verified: Boolean,
+    val attendanceStatus: String? = null
 )

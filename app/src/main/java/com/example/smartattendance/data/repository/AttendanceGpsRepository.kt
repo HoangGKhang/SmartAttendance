@@ -1,4 +1,3 @@
-
 package com.example.smartattendance.data.repository
 
 import com.example.smartattendance.data.remote.SupabaseProvider
@@ -7,24 +6,27 @@ import com.example.smartattendance.data.remote.dto.VerifyAttendanceGpsResponseDt
 
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.functions.functions
+import io.github.jan.supabase.exceptions.RestException
+
 import io.ktor.client.call.body
+import io.ktor.client.plugins.ResponseException
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.headersOf
 
 import kotlinx.coroutines.CancellationException
 
-import io.github.jan.supabase.exceptions.RestException
-import io.ktor.client.plugins.ResponseException
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+
 
 class GpsVerificationException(
     val httpStatus: Int,
     val errorCode: String?
 ) : Exception()
+
 
 class AttendanceGpsRepository {
 
@@ -36,7 +38,7 @@ class AttendanceGpsRepository {
         latitude: Double,
         longitude: Double,
         accuracyMeters: Double
-    ): Result<Boolean> {
+    ): Result<VerifyAttendanceGpsResponseDto> {
 
         return try {
 
@@ -46,8 +48,9 @@ class AttendanceGpsRepository {
 
             if (authSession == null) {
                 return Result.failure(
-                    IllegalStateException(
-                        "Vui lòng đăng nhập lại"
+                    GpsVerificationException(
+                        httpStatus = 401,
+                        errorCode = "UNAUTHORIZED"
                     )
                 )
             }
@@ -89,47 +92,99 @@ class AttendanceGpsRepository {
 
             // 5. Xử lý HTTP status.
             if (response.status.value != 200) {
-                return Result.failure(decodeGpsError(response))
+                return Result.failure(
+                    decodeGpsError(response)
+                )
             }
 
             // 6. Chuyển JSON response thành Kotlin DTO.
             val responseDto =
                 response.body<VerifyAttendanceGpsResponseDto>()
 
-            // 7. Trả kết quả xác minh.
-            Result.success(responseDto.verified)
+            // 7. Kiểm tra tính nhất quán của response.
+            val validResponse = if (responseDto.verified) {
+
+                responseDto.attendanceStatus == "PRESENT" ||
+                        responseDto.attendanceStatus == "ABSENT"
+
+            } else {
+
+                responseDto.attendanceStatus == null
+            }
+
+            // 8. Từ chối response không hợp lệ.
+            if (!validResponse) {
+                return Result.failure(
+                    GpsVerificationException(
+                        httpStatus = 200,
+                        errorCode = "INVALID_RESPONSE"
+                    )
+                )
+            }
+
+            // 9. Trả toàn bộ kết quả xác minh.
+            Result.success(responseDto)
 
         } catch (e: CancellationException) {
+
             throw e
+
         } catch (e: RestException) {
+
             Result.failure(
-                GpsVerificationException(e.statusCode, parseGpsErrorCode(e.error))
+                GpsVerificationException(
+                    e.statusCode,
+                    parseGpsErrorCode(e.error)
+                )
             )
+
         } catch (e: ResponseException) {
-            Result.failure(decodeGpsError(e.response))
+
+            Result.failure(
+                decodeGpsError(e.response)
+            )
+
         } catch (e: Exception) {
+
             Result.failure(e)
         }
     }
 
+
     private suspend fun decodeGpsError(
         response: HttpResponse
     ): GpsVerificationException {
+
         val errorCode = try {
+
             parseGpsErrorCode(response.bodyAsText())
+
         } catch (e: CancellationException) {
+
             throw e
+
         } catch (e: Exception) {
+
             null
         }
 
-        return GpsVerificationException(response.status.value, errorCode)
+        return GpsVerificationException(
+            response.status.value,
+            errorCode
+        )
     }
 
-    private fun parseGpsErrorCode(body: String): String? {
+
+    private fun parseGpsErrorCode(
+        body: String
+    ): String? {
+
         val json = try {
+
             Json.parseToJsonElement(body) as? JsonObject
+
         } catch (e: IllegalArgumentException) {
+
             null
         }
 

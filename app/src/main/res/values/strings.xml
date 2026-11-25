@@ -14,4 +14,11 @@
 
     <string name="login">Đăng nhập</string>
 
+    <string name="login_method_demo">Tài khoản demo</string>
+    <string name="login_method_moodle">Tài khoản Moodle</string>
+
+    <string name="login_moodle_username">Tên đăng nhập Moodle</string>
+    <string name="login_moodle_username_required">Vui lòng nhập tên đăng nhập Moodle</string>
+    <string name="login_moodle_password_required">Vui lòng nhập mật khẩu Moodle</string>
+
 </resources>

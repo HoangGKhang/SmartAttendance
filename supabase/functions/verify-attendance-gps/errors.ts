@@ -18,6 +18,8 @@ interface ApiError {
 export function mapVerifyGpsError(
   error: unknown,
 ): ApiError {
+
+  // 1. Authentication errors.
   if (error instanceof AuthenticationError) {
     return {
       status: 401,
@@ -25,6 +27,7 @@ export function mapVerifyGpsError(
     };
   }
 
+  // 2. Input validation errors.
   if (error instanceof GpsValidationError) {
     return {
       status: 400,
@@ -32,9 +35,13 @@ export function mapVerifyGpsError(
     };
   }
 
+  // 3. PostgreSQL RPC errors.
   if (error instanceof GpsRepositoryError) {
+
     if (error.code === "P0001") {
+
       switch (error.databaseMessage) {
+
         case "INVALID_GPS_DATA":
           return {
             status: 400,
@@ -53,6 +60,12 @@ export function mapVerifyGpsError(
             message: "SESSION_NOT_FOUND",
           };
 
+        case "ATTENDANCE_RECORD_NOT_FOUND":
+          return {
+            status: 404,
+            message: "ATTENDANCE_RECORD_NOT_FOUND",
+          };
+
         case "SESSION_UNAVAILABLE":
         case "MEETING_UNAVAILABLE":
           return {
@@ -65,6 +78,18 @@ export function mapVerifyGpsError(
             status: 409,
             message: "GPS_NOT_CONFIGURED",
           };
+
+        case "QR_VERIFICATION_REQUIRED":
+          return {
+            status: 409,
+            message: "QR_VERIFICATION_REQUIRED",
+          };
+
+        case "ALREADY_CHECKED_IN":
+          return {
+            status: 409,
+            message: "ALREADY_CHECKED_IN",
+          };
       }
     }
 
@@ -74,6 +99,7 @@ export function mapVerifyGpsError(
     };
   }
 
+  // 4. Unexpected errors.
   return {
     status: 500,
     message: "INTERNAL_SERVER_ERROR",

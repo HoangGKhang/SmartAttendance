@@ -10,13 +10,16 @@ import {
 
 import {
   getQrVerificationContext,
+  recordQrVerification,
 } from "./repository.ts";
 
 
 export type QrVerificationErrorCode =
-  | "QR_EXPIRED"
-  | "INVALID_QR_SIGNATURE"
-  | "INVALID_QR_CONTEXT";
+    | "QR_EXPIRED"
+    | "INVALID_QR_SIGNATURE"
+    | "INVALID_QR_CONTEXT"
+    | "WRONG_MEETING";
+
 
 
 export class QrVerificationError extends Error {
@@ -170,6 +173,13 @@ export async function verifyAttendanceQrService(
     );
   }
 
+// QR must belong to the selected Meeting.
+if (context.meeting_id !== input.meetingId) {
+  throw new QrVerificationError(
+    "WRONG_MEETING",
+  );
+}
+
   // 4. Đọc thời gian từ backend.
   const databaseTimeMs = Date.parse(
     context.server_time,
@@ -252,7 +262,14 @@ export async function verifyAttendanceQrService(
     );
   }
 
-  // 11. Trả về kết quả công khai.
+  // 11. Persist successful QR verification.
+  await recordQrVerification(
+    userId,
+    context.session_id,
+    parsed.window,
+  );
+
+  // 12. Return public verification result.
   return {
     verified: true,
     sessionId: context.session_id,

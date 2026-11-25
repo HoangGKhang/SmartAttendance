@@ -61,10 +61,11 @@ Deno.serve(async (request: Request): Promise<Response> => {
       input,
     );
 
-    // 6. Return only the verification result.
+    // 6. Return GPS and attendance results.
     return jsonResponse(
       {
         verified: result.verified,
+        attendanceStatus: result.attendanceStatus,
       },
       200,
     );

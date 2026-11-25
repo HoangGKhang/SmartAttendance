@@ -42,6 +42,7 @@ export function mapVerifyQrError(
     switch (error.message) {
       case "INVALID_REQUEST_BODY":
       case "INVALID_QR_TOKEN":
+      case "INVALID_MEETING_ID":
       case "UNSUPPORTED_QR_VERSION":
         return {
           status: 400,
@@ -88,6 +89,18 @@ export function mapVerifyQrError(
           message: "QR_NOT_AVAILABLE",
         };
 
+      case "ATTENDANCE_RECORD_NOT_FOUND":
+        return {
+          status: 404,
+          message: "ATTENDANCE_RECORD_NOT_FOUND",
+        };
+
+      case "QR_EXPIRED":
+        return {
+          status: 409,
+          message: "QR_EXPIRED",
+        };
+
       case "INVALID_QR_CONFIGURATION":
       case "INVALID_RPC_RESPONSE":
       case "RPC_ERROR":
@@ -118,6 +131,12 @@ export function mapVerifyQrError(
         return {
           status: 500,
           message: "QR_VERIFICATION_FAILED",
+        };
+
+      case "WRONG_MEETING":
+        return {
+          status: 409,
+          message: "WRONG_MEETING",
         };
     }
   }

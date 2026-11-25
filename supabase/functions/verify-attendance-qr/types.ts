@@ -4,6 +4,7 @@
  */
 export interface VerifyQrInput {
   qrToken: string;
+  meetingId: string;
 }
 
 

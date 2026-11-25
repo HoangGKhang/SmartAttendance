@@ -16,6 +16,8 @@ export type QrVerificationRepositoryErrorCode =
   | "QR_NOT_AVAILABLE"
   | "INVALID_QR_CONFIGURATION"
   | "RPC_ERROR"
+  | "ATTENDANCE_RECORD_NOT_FOUND"
+  | "QR_EXPIRED"
   | "INVALID_RPC_RESPONSE";
 
 
@@ -38,6 +40,8 @@ const knownRpcErrors = new Set<string>([
   "MEETING_NOT_FOUND",
   "NOT_COURSE_STUDENT",
   "QR_NOT_AVAILABLE",
+  "ATTENDANCE_RECORD_NOT_FOUND",
+  "QR_EXPIRED",
   "INVALID_QR_CONFIGURATION",
 ]);
 
@@ -148,4 +152,35 @@ export async function getQrVerificationContext(
       data.session_expires_at,
     server_time: data.server_time,
   };
+}
+
+export async function recordQrVerification(
+  userId: string,
+  sessionId: string,
+  window: number,
+): Promise<void> {
+
+  const admin = createAdminClient();
+
+  const { error } = await admin.rpc(
+    "record_attendance_qr_verification",
+    {
+      p_user_id: userId,
+      p_session_id: sessionId,
+      p_qr_window: window,
+    },
+  );
+
+  if (error) {
+    const code =
+      error.code === "P0001" &&
+      knownRpcErrors.has(error.message)
+        ? error.message as
+            QrVerificationRepositoryErrorCode
+        : "RPC_ERROR";
+
+    throw new QrVerificationRepositoryError(
+      code,
+    );
+  }
 }
