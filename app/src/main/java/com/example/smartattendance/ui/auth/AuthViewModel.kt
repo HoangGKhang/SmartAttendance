@@ -64,6 +64,40 @@ class AuthViewModel(
         )
     }
 
+
+    fun loginWithMoodle(
+        username: String,
+        password: String
+    ) {
+        if (_uiState.value.isLoading) return
+
+        viewModelScope.launch {
+
+            // 1. Start loading.
+            _uiState.value = AuthUiState(
+                isLoading = true
+            )
+
+            // 2. Delegate authentication to Repository.
+            val result = authRepository.loginWithMoodle(
+                username = username,
+                password = password
+            )
+
+            // 3. Update UI state.
+            _uiState.value = AuthUiState(
+                isLoading = false,
+                isLoginSuccess = result.isSuccess,
+                errorMessage = if (result.isFailure) {
+                    "Đăng nhập Moodle thất bại"
+                } else {
+                    null
+                }
+            )
+        }
+    }
+
+
     fun logout() {
 
         viewModelScope.launch {

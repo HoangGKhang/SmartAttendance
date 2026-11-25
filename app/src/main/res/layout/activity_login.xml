@@ -36,6 +36,28 @@
                 android:text="@string/login_description"
                 android:textSize="16sp" />
 
+
+            <RadioGroup
+                android:id="@+id/rgLoginMethod"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checkedButton="@+id/rbLoginDemo"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@id/rbLoginDemo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/login_method_demo" />
+
+                <RadioButton
+                    android:id="@+id/rbLoginMoodle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/login_method_moodle" />
+
+            </RadioGroup>
+
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/emailInputLayout"
                 android:layout_width="match_parent"

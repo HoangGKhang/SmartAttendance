@@ -24,6 +24,10 @@ import com.example.smartattendance.ui.profile.ProfileViewModel
 import com.example.smartattendance.data.model.UserRole
 import com.example.smartattendance.ui.lecturer.LecturerHomeActivity
 import com.example.smartattendance.ui.student.StudentHomeActivity
+
+//
+import android.text.InputType
+import com.example.smartattendance.R
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
@@ -50,29 +54,51 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-
-        binding.btnLogin.setOnClickListener {
-
+        binding.rgLoginMethod.setOnCheckedChangeListener { _, checkedId ->
             clearErrors()
 
-            val email = binding.etEmail.text
-                ?.toString()
-                ?.trim()
-                .orEmpty()
+            val isMoodle = checkedId == R.id.rbLoginMoodle
 
-            val password = binding.etPassword.text
-                ?.toString()
-                .orEmpty()
-
-            val isValid = validateInput(
-                email = email,
-                password = password
+            binding.emailInputLayout.hint = getString(
+                if (isMoodle) R.string.login_moodle_username else R.string.email
             )
 
-            if (isValid) {
+            binding.etEmail.inputType = if (isMoodle) {
+                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            } else {
+                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            }
+        }
 
+        binding.btnLogin.setOnClickListener {
+            clearErrors()
+
+            val identifier = binding.etEmail.text?.toString().orEmpty().trim()
+            val password = binding.etPassword.text?.toString().orEmpty()
+
+            if (binding.rgLoginMethod.checkedRadioButtonId == R.id.rbLoginMoodle) {
+                if (identifier.isBlank()) {
+                    binding.emailInputLayout.error =
+                        getString(R.string.login_moodle_username_required)
+                    return@setOnClickListener
+                }
+
+                if (password.isEmpty()) {
+                    binding.passwordInputLayout.error =
+                        getString(R.string.login_moodle_password_required)
+                    return@setOnClickListener
+                }
+
+                viewModel.loginWithMoodle(
+                    username = identifier,
+                    password = password
+                )
+                return@setOnClickListener
+            }
+
+            if (validateInput(email = identifier, password = password)) {
                 viewModel.login(
-                    email = email,
+                    email = identifier,
                     password = password
                 )
             }
